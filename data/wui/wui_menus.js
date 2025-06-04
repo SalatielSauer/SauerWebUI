@@ -5,7 +5,7 @@ const btn_leave = window.wui.createButton("Exit", () => {
 
 function _createMainMenu() {
 	const body = document.createElement('div');
-	const menu = window.wui.createMenu('main', body, '50%', '50%', 'Main Menu');
+	const menu = window.wui.createMenu('main', body, '50%', '50%', 'Main Menu', { allowDrag: false });
 	menu.style.zIndex = -1;
 	body.appendChild(window.wui.createTextInput('name', (e) => {
 		console.log("test: hello", e.target.value);
@@ -44,7 +44,7 @@ function _create_menu_browser() {
 	const searchField = window.wui.createTextInput('Search URL', (e) => {
 		iframe.src = e.target.value;
 	});
-	iframe.ownerDocument.activeElement.style.backgroundColor = "rgba(0,0,0,0)";
+
 	wui.overlay.appendChild(searchField);
 	wui.overlay.appendChild(hr);
 
@@ -55,8 +55,9 @@ function _create_menu_browser() {
 
 function _wui_serverbrowser() {
 	const body = document.createElement('div');
-	window.wui.createMenu('serverbrowser', body, '50%', '50%', 'Server Browser', { allowExit: true, allowDrag: true });
-
+	window.wui.createMenu('serverbrowser', body, '50%', '50%', 'Server Browser', { allowExit: true });
+	body.style.minWidth = '512px';
+	body.style.minHeight = '332px';
 	function refreshServerList() {
 
 		body.innerHTML = "";
@@ -73,7 +74,7 @@ function _wui_serverbrowser() {
 				return;
 			}
 
-			if (!Array.isArray(servers) || servers.length === 0) {
+			if (servers.length === 0) {
 				body.innerHTML += "<p>No servers found.</p>";
 				return;
 			}

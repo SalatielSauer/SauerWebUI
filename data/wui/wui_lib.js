@@ -53,20 +53,6 @@ class WUI {
             const overlay = document.createElement('div');
             overlay.className = 'wui-menu-overlay';
 
-            const fullscreenButton = document.createElement('button');
-            fullscreenButton.className = 'wui-menu-smallbutton';
-            fullscreenButton.innerText = '⛶ Fullscreen';
-
-            fullscreenButton.onclick = async () => {
-                if (document.fullscreenElement === menu) {
-                    await document.exitFullscreen();
-                    fullscreenButton.innerText = '⛶ Fullscreen';
-                } else {
-                    await menu.requestFullscreen();
-                    fullscreenButton.innerText = '❮ Exit Fullscreen';
-                }
-            };
-
             document.addEventListener('fullscreenchange', () => {
                 if (document.fullscreenElement === menu) {
                     fullscreenButton.innerText = '❮ Exit Fullscreen';
@@ -74,6 +60,18 @@ class WUI {
                     fullscreenButton.innerText = '⛶ Fullscreen';
                 }
             });
+
+            const fullscreenButton = document.createElement('button');
+            fullscreenButton.className = 'wui-menu-smallbutton';
+            fullscreenButton.innerText = '⛶ Fullscreen';
+
+            fullscreenButton.onclick = async () => {
+                if (document.fullscreenElement === menu) {
+                    await document.exitFullscreen();
+                } else {
+                    await menu.requestFullscreen();
+                }
+            };
 
             overlay.prepend(fullscreenButton);
             menu.overlay = overlay;
@@ -95,17 +93,18 @@ class WUI {
             menu.prepend(exitButton);
         }
 
+        if (options.allowDrag === undefined) { options.allowDrag = true; }
         if (options.allowDrag) {
             menu.classList.add('wui_draggable');
 
             let px = 0, py = 0;
             if (typeof x === 'string' && x.endsWith('%')) {
-                px = window.innerWidth * parseFloat(x) / 200 - menu.offsetWidth / 2;
+                px = window.innerWidth * parseFloat(x) / 100 - menu.offsetWidth / 2;
             } else {
                 px = parseInt(x) || 0;
             }
             if (typeof y === 'string' && y.endsWith('%')) {
-                py = window.innerHeight * parseFloat(y) / 200 - menu.offsetHeight / 2;
+                py = window.innerHeight * parseFloat(y) / 100 - menu.offsetHeight / 2;
             } else {
                 py = parseInt(y) || 0;
             }
@@ -204,6 +203,7 @@ window.handleTargetBlank = function(url) {
         iframe.src = url;
         window.wui.createMenu(`${url}`, iframe, '40%', '50%', '', { allowFullscreen: true, allowExit: true });
         window.wui.showMenu(url);
+        document.exitFullscreen();
     }
 }
 
@@ -232,7 +232,7 @@ interact('.wui_draggable').draggable({
             parent.setAttribute('pos_x', x);
             parent.setAttribute('pos_y', y);
 
-            event.target.style.transform = `translate(${x}px, ${y}px)`;
+            parent.style.transform = `translate(${x}px, ${y}px)`;
         },
     }
 });

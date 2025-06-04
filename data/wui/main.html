@@ -154,17 +154,25 @@
 		}
 
 		.wui-menu-exit {
-			min-width: unset;
-			float: right;
-			transform: translate(20px, -20px);
-			border-radius: 100px;
-			font-size: 12px;
 			padding: 5px;
 			margin: 0px;
-			border-style: solid;
-			border-color: #ff6a0085;
-			padding-bottom: 2px;
-			padding-top: 2px;
+			border-style: none;
+			color: #ff6a00;
+			background: transparent;
+			font-size: 8px;
+			position: absolute;
+			min-width: auto;
+			right: 0px;
+			top: 0px;
+			transition: all 0.1s ease-in-out;
+		}
+
+		.wui-menu-exit:hover {
+			color: #ff4400;
+			cursor: pointer;
+			background: transparent;
+			text-shadow: 0 0 1px #ff8b5f;
+			transform: scale(1.5);
 		}
 
 		@keyframes fadeIn {
