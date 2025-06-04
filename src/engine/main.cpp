@@ -933,11 +933,14 @@ static void checkmousemotion(int &dx, int &dy)
 }
 
 // SauerWUI
-bool cef_is_input_active = false;
-void on_cef_input_active(bool active) {
-    textinput(active);
-    cef_is_input_active = active;
+// Tracks whether a text field in the embedded browser currently has focus.
+// Updated via cef_set_input_active_callback.
+extern bool cef_input_active;
+void on_cef_input_active(bool active)
+{
+    textinput(active); // enable/disable SDL text input
 }
+
 
 void checkinput()
 {
@@ -960,7 +963,7 @@ void checkinput()
             case SDL_TEXTINPUT:
                 cef_browser_text_input(event.text.text, strlen(event.text.text)); // SauerWUI
 
-                if((textinputmask && int(event.text.timestamp - textinputtime) >= textinputfilter) && !cef_is_input_active)
+                if ((textinputmask && int(event.text.timestamp - textinputtime) >= textinputfilter) && !cef_input_active)
                 {
                     uchar buf[SDL_TEXTINPUTEVENT_TEXT_SIZE+1];
                     size_t len = decodeutf8(buf, sizeof(buf)-1, (const uchar *)event.text.text, strlen(event.text.text));
@@ -969,15 +972,21 @@ void checkinput()
                 break;
 
             case SDL_KEYDOWN:
-                cef_browser_key_input(event.key.keysym.sym, event.key.state == SDL_PRESSED, event.key.keysym.mod | SDL_GetModState()); // SauerWUI
+                // SauerWUI
+                if (cef_input_active)
+                    cef_browser_key_input(event.key.keysym.sym, true, event.key.keysym.mod | SDL_GetModState());
 
-                if((keyrepeatmask || !event.key.repeat) && !cef_is_input_active)
-                    processkey(event.key.keysym.sym, event.key.state == SDL_PRESSED, event.key.keysym.mod | SDL_GetModState());
+                if ((keyrepeatmask || !event.key.repeat) && !cef_input_active)
+                    processkey(event.key.keysym.sym, true, event.key.keysym.mod | SDL_GetModState());
                 break;
 
             case SDL_KEYUP:
-                if(keyrepeatmask || !event.key.repeat)
-                    processkey(event.key.keysym.sym, event.key.state==SDL_PRESSED, event.key.keysym.mod | SDL_GetModState());
+                // SauerWUI
+                if (cef_input_active)
+                    cef_browser_key_input(event.key.keysym.sym, false, event.key.keysym.mod | SDL_GetModState());
+
+                if ((keyrepeatmask || !event.key.repeat) && !cef_input_active)
+                    processkey(event.key.keysym.sym, false, event.key.keysym.mod | SDL_GetModState());
                 break;
 
             case SDL_WINDOWEVENT:

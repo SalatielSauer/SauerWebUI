@@ -2,6 +2,9 @@
 
 #include "cef.h"
 #include "include/cef_app.h"
+#include "include/cef_process_message.h"
+#include "include/cef_dom.h"
+#include "include/internal/cef_types.h"
 #include "include/wrapper/cef_message_router.h"
 #include "SDL.h"
 
@@ -88,6 +91,16 @@ public:
         return false;
     }
 
+    // notified when the focused DOM node changes; inform the browser process
+    void OnFocusedNodeChanged(CefRefPtr<CefBrowser> browser,
+        CefRefPtr<CefFrame> frame,
+        CefRefPtr<CefDOMNode> node) override
+    {
+        CefRefPtr<CefProcessMessage> msg = CefProcessMessage::Create("cef_input_active");
+        msg->GetArgumentList()->SetBool(0, node.get() && node->IsEditable());
+        frame->SendProcessMessage(PID_BROWSER, msg);
+    }
+
 private:
     // message router for handling javascript queries on the renderer side
     CefRefPtr<CefMessageRouterRendererSide> message_router_renderer_side_;
@@ -125,6 +138,15 @@ public:
         CefRefPtr<CefFrame> frame,
         CefProcessId source_process,
         CefRefPtr<CefProcessMessage> message) override {
+
+        // handle renderer-originated focus state messages
+        if (message->GetName() == "cef_input_active") {
+            bool active = message->GetArgumentList()->GetBool(0);
+            cef_input_active = active;
+            if (g_cef_input_active_callback) g_cef_input_active_callback(active);
+            return true;
+        }
+
         if (g_message_router)
             return g_message_router->OnProcessMessageReceived(browser, frame, source_process, message);
         return false;
@@ -142,6 +164,7 @@ public:
             g_message_router->OnBeforeClose(browser);
     }
 
+    // handles target="_blank"
     bool OnBeforePopup(
         CefRefPtr<CefBrowser> browser,
         CefRefPtr<CefFrame> frame,
@@ -158,11 +181,10 @@ public:
         bool* no_javascript_access
     ) override
     {
-        // Pass the URL to your JS handler (using target_url)
         std::string js = "window.handleTargetBlank && window.handleTargetBlank(\"" + target_url.ToString() + "\");";
         browser->GetMainFrame()->ExecuteJavaScript(js, browser->GetMainFrame()->GetURL(), 0);
 
-        return true; // Cancel popup
+        return true;
     }
 
 
@@ -183,30 +205,23 @@ public:
             callback->Success("OK");
             return true;
         }
-        // handles cubescript commands from javascript
-        /*if (req.rfind("cubescript:", 0) == 0) {
-            std::string cmd = req.substr(strlen("cubescript:"));
-            if (g_execident_callback) g_execident_callback(cmd.c_str());
-            callback->Success("OK");
-            return true;
-        }*/
+
         // handles cubescript commands from javascript
         if (req.rfind("cubescript:", 0) == 0) {
             std::string cmd = req.substr(strlen("cubescript:"));
             if (g_execident_callback) {
-                // Create a copy of the callback pointer so it survives until result_cb is called.
+                // create a copy of the callback pointer so it survives until result_cb is called.
                 CefRefPtr<Callback>* callback_copy = new CefRefPtr<Callback>(callback);
 
-                // Use a static function pointer, not a lambda.
                 g_execident_callback(
                     cmd.c_str(),
-                    // Result callback function (static, not a lambda)
+
                     [](const char* result, void* userdata) {
                         CefRefPtr<Callback>* cbptr = static_cast<CefRefPtr<Callback>*>(userdata);
                         if (cbptr && *cbptr) {
                             (*cbptr)->Success(result ? result : "");
                         }
-                        delete cbptr; // Prevent leak
+                        delete cbptr;
                     },
                     callback_copy
                 );
@@ -214,15 +229,6 @@ public:
             else {
                 callback->Failure(-1, "No execident callback set");
             }
-            return true;
-        }
-
-        // workaround to determine if we are editing a text field
-        if (req.rfind("cef_input:", 0) == 0) {
-            bool active = req == "cef_input:1";
-            cef_input_active = active;
-            if (g_cef_input_active_callback) g_cef_input_active_callback(active);
-            callback->Success("OK");
             return true;
         }
 
@@ -236,7 +242,6 @@ public:
             callback->Success("OK");
             return true;
         }
-
 
         return false;
     }
@@ -368,7 +373,6 @@ void cef_browser_send_key_event(const c_cef_key_event_t* event)
     cef_event.is_system_key = (event->is_system_key != 0);
     cef_event.character = event->character;
     cef_event.unmodified_character = event->unmodified_character;
-    // Focus and other fields can be filled as needed
 
     g_browser->GetHost()->SendKeyEvent(cef_event);
 }
@@ -383,34 +387,7 @@ int utf8_nextcodepoint(const char* s, uint32_t* cp) {
 }
 
 
-bool cef_input_active = true;
-/*void cef_browser_text_input(const char* str, int len)
-{
-    if (!cef_input_active) return;
-    if (g_browser) g_browser->GetHost()->SetFocus(true);
-
-    int i = 0;
-    while (i < len) {
-        uint32_t codepoint = 0;
-        int consumed = utf8_nextcodepoint(str + i, &codepoint);
-        if (consumed <= 0) break;
-        c_cef_key_event_t ev = {};
-        ev.type = CEF_KEYEVENT_CHAR;
-        ev.character = codepoint;
-        ev.unmodified_character = codepoint;
-        cef_browser_send_key_event(&ev);
-        i += consumed;
-        char dbg[128];
-        snprintf(dbg, sizeof(dbg), "CHAR INPUT: 0x%X '%c'\n", codepoint, (char)codepoint);
-        OutputDebugStringA(dbg);
-    }
-}*/
-
-/*
-Ideally, we would just send the main events from sdl and cef would take care of the rest,
-but it doesn't seem to want to do that for text-related events, so we're brute-forcing it: we take the key sent
-from SDL and send it to JavaScript, where we intercept it and implement the actions manually.
-*/
+bool cef_input_active = false;
 
 void cef_browser_text_input(const char* str, int len)
 {
@@ -419,151 +396,95 @@ void cef_browser_text_input(const char* str, int len)
     g_browser->GetHost()->SetFocus(true);
 
     int i = 0;
-    while (i < len) {
+    while (i < len)
+    {
         uint32_t codepoint = 0;
         int consumed = utf8_nextcodepoint(str + i, &codepoint);
         if (consumed <= 0) break;
 
-        char jsbuf[128];
-        if (codepoint >= 32 && codepoint <= 126) {
-            snprintf(jsbuf, sizeof(jsbuf), "window._cef_insert_character('%c');", (char)codepoint);
-        }
-        else {
-            snprintf(jsbuf, sizeof(jsbuf), "window._cef_insert_character('\\u%04x');", codepoint);
-        }
-
-        g_browser->GetMainFrame()->ExecuteJavaScript(jsbuf, "", 0);
+        c_cef_key_event_t ev = {};
+        ev.type = CEF_KEYEVENT_CHAR;
+        ev.key = codepoint;
+        ev.scancode = 0;
+        ev.character = codepoint;
+        ev.unmodified_character = codepoint;
+        cef_browser_send_key_event(&ev);
 
         i += consumed;
     }
 }
 
-
-const char* SDLKeyToJSKeyName(int sdlkey)
+static int sdlkey_to_cef_keycode(int key)
 {
-    // letters
-    if (sdlkey >= SDLK_a && sdlkey <= SDLK_z) {
-        static char key[2];
-        key[0] = 'a' + (sdlkey - SDLK_a);
-        key[1] = '\0';
-        return key;
+    if (key >= SDLK_a && key <= SDLK_z)
+        return 'A' + (key - SDLK_a);
+    if (key >= SDLK_0 && key <= SDLK_9)
+        return '0' + (key - SDLK_0);
+
+    switch (key)
+    {
+    case SDLK_LEFT:      return 0x25; // VK_LEFT
+    case SDLK_UP:        return 0x26; // VK_UP
+    case SDLK_RIGHT:     return 0x27; // VK_RIGHT
+    case SDLK_DOWN:      return 0x28; // VK_DOWN
+    case SDLK_BACKSPACE: return 0x08; // VK_BACK
+    case SDLK_TAB:       return 0x09; // VK_TAB
+    case SDLK_RETURN:    return 0x0D; // VK_RETURN
+    case SDLK_ESCAPE:    return 0x1B; // VK_ESCAPE
+    case SDLK_SPACE:     return 0x20; // VK_SPACE
+    case SDLK_PAGEUP:    return 0x21; // VK_PRIOR
+    case SDLK_PAGEDOWN:  return 0x22; // VK_NEXT
+    case SDLK_END:       return 0x23; // VK_END
+    case SDLK_HOME:      return 0x24; // VK_HOME
+    case SDLK_INSERT:    return 0x2D; // VK_INSERT
+    case SDLK_DELETE:    return 0x2E; // VK_DELETE
+    case SDLK_LSHIFT:    return 0x10; // VK_SHIFT
+    case SDLK_RSHIFT:    return 0x10; // VK_SHIFT
+    case SDLK_LCTRL:     return 0x11; // VK_CONTROL
+    case SDLK_RCTRL:     return 0x11; // VK_CONTROL
+    case SDLK_LALT:      return 0x12; // VK_MENU
+    case SDLK_RALT:      return 0x12; // VK_MENU
+    default:             return key;  // fallback
     }
-    // numbers (top row)
-    if (sdlkey >= SDLK_0 && sdlkey <= SDLK_9) {
-        static char key[2];
-        key[0] = '0' + (sdlkey - SDLK_0);
-        key[1] = '\0';
-        return key;
-    }
-    // numpad numbers
-    if (sdlkey >= SDLK_KP_0 && sdlkey <= SDLK_KP_9) {
-        static char key[2];
-        key[0] = '0' + (sdlkey - SDLK_KP_0);
-        key[1] = '\0';
-        return key;
+}
+
+static int sdlmod_to_cef_flags(int modstate, int key)
+{
+    int flags = EVENTFLAG_NONE;
+    if (modstate & KMOD_SHIFT) flags |= EVENTFLAG_SHIFT_DOWN;
+    if (modstate & KMOD_CTRL)  flags |= EVENTFLAG_CONTROL_DOWN;
+    if (modstate & KMOD_ALT)   flags |= EVENTFLAG_ALT_DOWN;
+    if (modstate & KMOD_GUI)   flags |= EVENTFLAG_COMMAND_DOWN;
+    if (modstate & KMOD_NUM)   flags |= EVENTFLAG_NUM_LOCK_ON;
+    if (modstate & KMOD_CAPS)  flags |= EVENTFLAG_CAPS_LOCK_ON;
+    if (modstate & KMOD_MODE)  flags |= EVENTFLAG_ALTGR_DOWN;
+
+    if (key >= SDLK_KP_0 && key <= SDLK_KP_HEXADECIMAL)
+        flags |= EVENTFLAG_IS_KEY_PAD;
+
+    switch (key)
+    {
+    case SDLK_LSHIFT: case SDLK_LCTRL: case SDLK_LALT: case SDLK_LGUI:
+        flags |= EVENTFLAG_IS_LEFT; break;
+    case SDLK_RSHIFT: case SDLK_RCTRL: case SDLK_RALT: case SDLK_RGUI:
+        flags |= EVENTFLAG_IS_RIGHT; break;
     }
 
-    switch (sdlkey) {
-    case SDLK_BACKSPACE: return "Backspace";
-    case SDLK_TAB:       return "Tab";
-    case SDLK_RETURN:    return "Enter";
-    case SDLK_RETURN2:   return "Enter";
-    case SDLK_KP_ENTER:  return "Enter";
-    case SDLK_ESCAPE:    return "Escape";
-    case SDLK_SPACE:     return " ";
-    case SDLK_QUOTE:     return "'";
-    case SDLK_COMMA:     return ",";
-    case SDLK_MINUS:     return "-";
-    case SDLK_PERIOD:    return ".";
-    case SDLK_SLASH:     return "/";
-    case SDLK_SEMICOLON: return ";";
-    case SDLK_EQUALS:    return "=";
-    case SDLK_LEFTBRACKET:  return "[";
-    case SDLK_BACKSLASH:    return "\\";
-    case SDLK_RIGHTBRACKET: return "]";
-    case SDLK_BACKQUOTE:        return "`";
-        // arrow keys
-    case SDLK_LEFT:  return "ArrowLeft";
-    case SDLK_RIGHT: return "ArrowRight";
-    case SDLK_UP:    return "ArrowUp";
-    case SDLK_DOWN:  return "ArrowDown";
-        // function keys
-    case SDLK_F1: return "F1"; case SDLK_F2: return "F2";
-    case SDLK_F3: return "F3"; case SDLK_F4: return "F4";
-    case SDLK_F5: return "F5"; case SDLK_F6: return "F6";
-    case SDLK_F7: return "F7"; case SDLK_F8: return "F8";
-    case SDLK_F9: return "F9"; case SDLK_F10: return "F10";
-    case SDLK_F11: return "F11"; case SDLK_F12: return "F12";
-        // other useful keys
-    case SDLK_DELETE:   return "Delete";
-    case SDLK_INSERT:   return "Insert";
-    case SDLK_HOME:     return "Home";
-    case SDLK_END:      return "End";
-    case SDLK_PAGEUP:   return "PageUp";
-    case SDLK_PAGEDOWN: return "PageDown";
-    case SDLK_CAPSLOCK: return "CapsLock";
-    case SDLK_SCROLLLOCK: return "ScrollLock";
-    case SDLK_PRINTSCREEN: return "PrintScreen";
-    case SDLK_PAUSE:      return "Pause";
-    case SDLK_LSHIFT: return "Shift";
-    case SDLK_RSHIFT: return "Shift";
-    case SDLK_LCTRL:  return "Control";
-    case SDLK_RCTRL:  return "Control";
-    case SDLK_LALT:   return "Alt";
-    case SDLK_RALT:   return "Alt";
-    case SDLK_LGUI:   return "Meta"; // Windows key / Cmd
-    case SDLK_RGUI:   return "Meta";
-    }
-    return nullptr;
+    return flags;
 }
 
 void cef_browser_key_input(int sdlkey, bool isdown, int modstate)
 {
-    const char* jskey = SDLKeyToJSKeyName(sdlkey);
-    if (jskey && g_browser) {
-        // calculate modifiers
-        bool shift = (modstate & KMOD_SHIFT) != 0;
-        bool ctrl = (modstate & KMOD_CTRL) != 0;
-        bool alt = (modstate & KMOD_ALT) != 0;
-        bool meta = (modstate & KMOD_GUI) != 0; // Windows/Cmd
-
-        // format: window._cef_handle_key('KeyName', true/false, {shift:true,ctrl:true,alt:true,meta:true});
-        char jsbuf[256];
-        snprintf(jsbuf, sizeof(jsbuf),
-            "window._cef_handle_key('%s', %s, {shift:%s,ctrl:%s,alt:%s,meta:%s});",
-            jskey,
-            isdown ? "true" : "false",
-            shift ? "true" : "false",
-            ctrl ? "true" : "false",
-            alt ? "true" : "false",
-            meta ? "true" : "false"
-        );
-        g_browser->GetMainFrame()->ExecuteJavaScript(jsbuf, "", 0);
-    }
-
-    c_cef_key_event_t ev;
-    memset(&ev, 0, sizeof(ev));
-    return;
+    if (!g_browser) return;
+    c_cef_key_event_t ev = {};
+    ev.type = isdown ? CEF_KEYEVENT_RAWKEYDOWN : CEF_KEYEVENT_KEYUP;
+    ev.key = sdlkey_to_cef_keycode(sdlkey);
+    ev.scancode = SDL_GetScancodeFromKey(sdlkey);
+    ev.modifiers = sdlmod_to_cef_flags(modstate, sdlkey);
+    if (sdlkey == SDLK_LALT || sdlkey == SDLK_RALT)
+        ev.is_system_key = 1;
+    cef_browser_send_key_event(&ev);
 }
-
-/*void cef_browser_key_input(int code, bool isdown, int modstate)
-{
-    //char buf[512];
-    //snprintf(buf, sizeof(buf), "cef_input_active is true: Sending KEY INPUT to CEF: '%d %b %d'\n", code, isdown, modstate);
-    //if (cef_input_active)
-    //{
-        //OutputDebugStringA(buf);
-        c_cef_key_event_t ev;
-        memset(&ev, 0, sizeof(ev));
-
-        ev.type = isdown ? CEF_KEYEVENT_RAWKEYDOWN : CEF_KEYEVENT_KEYUP;
-        ev.key = code;
-        ev.scancode = 0;
-        ev.modifiers = modstate;
-        cef_browser_send_key_event(&ev);
-        return;
-        //}
-}*/
 
 // updates the browser view size (for when the sdl window is resized)
 void cef_browser_window_resize(int w, int h)
