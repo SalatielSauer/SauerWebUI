@@ -58,24 +58,23 @@ function _wui_serverbrowser() {
 	window.wui.createMenu('serverbrowser', body, '50%', '50%', 'Server Browser', { allowExit: true });
 	body.style.minWidth = '512px';
 	body.style.minHeight = '332px';
+
+	const container = document.createElement('div');
+
 	function refreshServerList() {
-
-		body.innerHTML = "";
-
-		const refreshBtn = window.wui.createButton("Refresh", refreshServerList);
-		body.appendChild(refreshBtn);
+		container.innerHTML = "";
 
 		cubescript('json_listservers 1', (serversJson) => {
 			let servers = [];
 			try {
 				servers = JSON.parse(serversJson);
 			} catch (e) {
-				body.innerHTML += "<p>Error parsing server list.</p>";
+				container.innerHTML += "<p>Error parsing server list.</p>";
 				return;
 			}
 
 			if (servers.length === 0) {
-				body.innerHTML += "<p>No servers found.</p>";
+				container.innerHTML += "<p>No servers found.</p>";
 				return;
 			}
 
@@ -112,9 +111,13 @@ function _wui_serverbrowser() {
 			});
 
 			table.appendChild(tbody);
-			body.appendChild(table);
+			container.appendChild(table);
 		});
 	}
+
+	const refreshBtn = window.wui.createButton("Refresh", refreshServerList);
+	body.appendChild(refreshBtn);
+	body.appendChild(container);
 
 	refreshServerList();
 }

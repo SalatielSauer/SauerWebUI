@@ -208,6 +208,7 @@ window.handleTargetBlank = function(url) {
 }
 
 interact('.wui_draggable').draggable({
+    allowFrom: '.wui-menu-title, .wui-menu',
     listeners: {
         start (event) { },
         move (event) {
@@ -235,4 +236,23 @@ interact('.wui_draggable').draggable({
             parent.style.transform = `translate(${x}px, ${y}px)`;
         },
     }
+});
+
+window.wui_gui_add = function(id, html, x, y, w, h) {
+    let el = document.getElementById(id);
+    if(!el) {
+        el = document.createElement('div');
+        el.id = id;
+        document.getElementById('wui-root').appendChild(el);
+    }
+    el.style.position = 'absolute';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.innerHTML = html;
+};
+
+document.addEventListener('contextmenu', function(event) {
+    event.preventDefault();
 });
