@@ -92,12 +92,18 @@ void boxsgrid(int orient, vec o, vec s, int g)
 
 selinfo sel, lastsel, savedsel;
 
+// SauerWUI - multiselection
+vector<selinfo> multisels;
+VAR(multiselmode, 0, 0, 1);
+static bool processingmultisel = false;
+
 int orient = 0;
 int gridsize = 8;
 ivec cor, lastcor;
 ivec cur, lastcur;
 
 extern int entediting;
+extern bool pointinselection(const vec& o); // SauerWUI - multiselection
 bool editmode = false;
 bool havesel = false;
 bool hmapsel = false;
@@ -118,7 +124,9 @@ ICOMMAND(moving, "b", (int *n),
 {
     if(*n >= 0)
     {
-        if(!*n || (moving<=1 && !pointinsel(sel, vec(cur).add(1)))) moving = 0;
+        //if(!*n || (moving<=1 && !pointinsel(sel, vec(cur).add(1)))) moving = 0;
+        // SauerWUI - multiselection
+        if (!*n || (moving <= 1 && !pointinselection(vec(cur).add(1)))) moving = 0;
         else if(!moving) moving = 1;
     }
     intret(moving);
@@ -144,6 +152,7 @@ extern void hmapcancel();
 void cubecancel()
 {
     havesel = false;
+    multisels.shrink(0); // SauerWUI - multiselection
     moving = dragging = hmapedit = passthroughsel = 0;
     forcenextundo();
     hmapcancel();
@@ -277,6 +286,11 @@ void movesel(int *dir, int *dim)
 }
 COMMAND(movesel, "ii");
 
+// SauerWUI - multiselection
+ICOMMAND(addselection, "", (), { if (noedit(true)) return; if (!sel.s.iszero()) multisels.add(sel); });
+ICOMMAND(clearselections, "", (), { multisels.shrink(0); });
+ICOMMAND(multiselcount, "", (), intret(multisels.length()));
+
 ///////// selection support /////////////
 
 cube &blockcube(int x, int y, int z, const block3 &b, int rgrid) // looks up a world cube, based on coordinates mapped by the block
@@ -290,7 +304,17 @@ cube &blockcube(int x, int y, int z, const block3 &b, int rgrid) // looks up a w
 
 #define loopxy(b)        loop(y,(b).s[C[dimension((b).orient)]]) loop(x,(b).s[R[dimension((b).orient)]])
 #define loopxyz(b, r, f) { loop(z,(b).s[D[dimension((b).orient)]]) loopxy((b)) { cube &c = blockcube(x,y,z,b,r); f; } }
-#define loopselxyz(f)    { if(local) makeundo(); loopxyz(sel, sel.grid, f); changed(sel); }
+
+//#define loopselxyz(f)    { if(local) makeundo(); loopxyz(sel, sel.grid, f); changed(sel); }
+// SauerWUI - multiselection
+#define loopselxyz(f)    { \
+    if(multiselmode && !processingmultisel && multisels.length()) { \
+        loopv(multisels) { selinfo &sel = multisels[i]; if(local) makeundo(); loopxyz(sel, sel.grid, f); changed(sel); } \
+    } else { \
+        if(local) makeundo(); loopxyz(sel, sel.grid, f); changed(sel); \
+    } \
+}
+
 #define selcube(x, y, z) blockcube(x, y, z, sel, sel.grid)
 
 ////////////// cursor ///////////////
@@ -565,6 +589,20 @@ void rendereditcursor()
         boxs3D(vec(sel.o), vec(sel.s), sel.grid);
     }
 
+    // SauerWUI - multiselection
+    if (multiselmode && multisels.length())
+    {
+        loopv(multisels)
+        {
+            selinfo& ms = multisels[i];
+            int md = dimension(ms.orient);
+            gle::colorub(50, 50, 50);
+            boxsgrid(ms.orient, vec(ms.o), vec(ms.s), ms.grid);
+            gle::colorub(0, 0, 120);
+            boxs3D(vec(ms.o), vec(ms.s), ms.grid);
+        }
+    }
+
     disablepolygonoffset(GL_POLYGON_OFFSET_LINE);
 
     boxoutline = false;
@@ -634,7 +672,11 @@ void commitchanges(bool force)
 void changed(const block3 &sel, bool commit = true)
 {
     if(sel.s.iszero()) return;
-    readychanges(ivec(sel.o).sub(1), ivec(sel.s).mul(sel.grid).add(sel.o).add(1), worldroot, ivec(0, 0, 0), worldsize/2);
+
+    //readychanges(ivec(sel.o).sub(1), ivec(sel.s).mul(sel.grid).add(sel.o).add(1), worldroot, ivec(0, 0, 0), worldsize/2);
+    // SauerWUI - preserve lightmap when editing neighbouring cubes
+    readychanges(sel.o, ivec(sel.s).mul(sel.grid).add(sel.o), worldroot, ivec(0, 0, 0), worldsize / 2);
+
     haschanged = true;
 
     if(commit) commitchanges();
@@ -2063,7 +2105,17 @@ void editface(int *dir, int *mode)
 {
     if(noedit(moving!=0)) return;
     if(hmapedit!=1)
-        mpeditface(*dir, *mode, sel, true);
+    {
+        //mpeditface(*dir, *mode, sel, true);
+        // SauerWUI - multiselection
+        if (multiselmode && multisels.length())
+        {
+            processingmultisel = true;
+            loopv(multisels) mpeditface(*dir, *mode, multisels[i], true);
+            processingmultisel = false;
+        }
+        else mpeditface(*dir, *mode, sel, true);
+    }
     else
         edithmap(*dir, *mode);
 }

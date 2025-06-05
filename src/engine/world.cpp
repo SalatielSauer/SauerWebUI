@@ -271,6 +271,11 @@ char *entname(entity &e)
 
 extern selinfo sel;
 extern bool havesel;
+
+// SauerWUI - multiselection
+extern vector<selinfo> multisels;
+extern int multiselmode;
+
 int entlooplevel = 0;
 int efocus = -1, enthover = -1, entorient = -1, oldhover = -1;
 bool undonext = true;
@@ -292,6 +297,16 @@ bool pointinsel(const selinfo &sel, const vec &o)
         && o.y >= sel.o.y
         && o.z <= sel.o.z+sel.s.z*sel.grid
         && o.z >= sel.o.z);
+}
+
+// SauerWUI - multiselection
+bool pointinselection(const vec& o)
+{
+    if (multiselmode && multisels.length())
+    {
+        loopv(multisels) if (pointinsel(multisels[i], o)) return true;
+    }
+    return pointinsel(sel, o);
 }
 
 vector<int> entgroup;
@@ -1080,7 +1095,8 @@ void nearestent()
 ICOMMAND(enthavesel,"",  (), addimplicit(intret(entgroup.length())));
 ICOMMAND(entselect, "e", (uint *body), if(!noentedit()) addgroup(e.type != ET_EMPTY && entgroup.find(n)<0 && executebool(body)));
 ICOMMAND(entloop,   "e", (uint *body), if(!noentedit()) addimplicit(groupeditloop(((void)e, execute(body)))));
-ICOMMAND(insel,     "",  (), entfocus(efocus, intret(pointinsel(sel, e.o))));
+//ICOMMAND(insel,     "",  (), entfocus(efocus, intret(pointinsel(sel, e.o))));
+ICOMMAND(insel, "", (), entfocus(efocus, intret(pointinselection(e.o)))); // SauerWUI - multiselection
 ICOMMAND(entget,    "",  (), entfocus(efocus, string s; printent(e, s, sizeof(s)); result(s)));
 ICOMMAND(entindex,  "",  (), intret(efocus));
 COMMAND(entset, "siiiii");
