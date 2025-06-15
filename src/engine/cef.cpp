@@ -234,10 +234,10 @@ public:
 
         if (req == "openDevTools") {
             browser->GetHost()->ShowDevTools(
-                CefWindowInfo(),      // Default popup
-                nullptr,              // No custom client
-                CefBrowserSettings(), // Default settings
-                CefPoint()            // Default position
+                CefWindowInfo(),
+                nullptr,
+                CefBrowserSettings(),
+                CefPoint()
             );
             callback->Success("OK");
             return true;
@@ -494,7 +494,6 @@ void cef_browser_window_resize(int w, int h)
     if (g_browser) g_browser->GetHost()->WasResized();
 }
 
-
 void* cef_get_browser() {
     return g_browser.get();
 }
@@ -605,8 +604,10 @@ int cef_execute_process(void* instance_or_argc_argv)
 
 void cef_cleanup()
 {
-    // get ready to exit
     if (g_browser) {
+        if (g_browser->GetHost()->HasDevTools()) {
+            g_browser->GetHost()->CloseDevTools();
+        }
         g_browser->GetHost()->CloseBrowser(true);
         g_browser = nullptr;
     }
