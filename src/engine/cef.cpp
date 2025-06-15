@@ -7,6 +7,8 @@
 #include "include/internal/cef_types.h"
 #include "include/wrapper/cef_message_router.h"
 #include "SDL.h"
+#include <filesystem>
+
 
 static CefRefPtr<CefBrowser> g_browser;
 
@@ -45,6 +47,50 @@ cef_input_active_callback_t g_cef_input_active_callback = nullptr;
 void cef_set_input_active_callback(cef_input_active_callback_t cb) {
     g_cef_input_active_callback = cb;
 }
+
+// todo: maybe find a better way to get the root path
+std::string GetExeDir() {
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::string fullPath(buffer);
+    // strip off the executable name
+    size_t pos = fullPath.find_last_of("\\/");
+    return (pos == std::string::npos) ? "" : fullPath.substr(0, pos + 1);
+}
+
+std::string getDownloadPath(const std::string& filename) {
+    std::filesystem::path exeDir = GetExeDir();
+    std::filesystem::path homePath = exeDir / ".." / "HOME" / filename; // todo: we should not hardcode the home folder
+    return std::filesystem::absolute(homePath).string();
+}
+
+class DownloadHandler : public CefDownloadHandler {
+public:
+    bool OnBeforeDownload(
+        CefRefPtr<CefBrowser> browser,
+        CefRefPtr<CefDownloadItem> download_item,
+        const CefString& suggested_name,
+        CefRefPtr<CefBeforeDownloadCallback> callback) override
+    {
+        std::string exeDir = GetExeDir();
+        std::string path = getDownloadPath(suggested_name.ToString());
+        callback->Continue(path, false); // false = save automatically, true = show dialog
+        return true;
+    }
+
+
+    void OnDownloadUpdated(
+        CefRefPtr<CefBrowser> browser,
+        CefRefPtr<CefDownloadItem> download_item,
+        CefRefPtr<CefDownloadItemCallback> callback
+    ) override {
+        // track download progress here
+    }
+
+    IMPLEMENT_REFCOUNTING(DownloadHandler);
+};
+
+
 
 // handles application-level callbacks and render process events for cef
 class SimpleApp : public CefApp, public CefRenderProcessHandler {
@@ -299,6 +345,9 @@ public:
         memcpy(cef_pixel_buffer, buffer, width * height * 4);
         cef_pixel_dirty = true; // mark buffer as dirty for the renderer to update
     }
+
+    // download event
+    CefRefPtr<CefDownloadHandler> GetDownloadHandler() override { return new DownloadHandler(); }
 };
 
 static CefRefPtr<SimpleHandler> g_handler;
