@@ -1,6 +1,9 @@
 // menus.cpp: ingame menu system (also used for scores and serverlist)
 
 #include "engine.h"
+#include "SDL_image.h" // SauerWUI
+
+extern SDL_Surface* fixsurfaceformat(SDL_Surface* s); // SauerWUI
 
 #define GUI_TITLE_COLOR  0xFFDD88
 #define GUI_BUTTON_COLOR 0xFFFFFF
@@ -284,6 +287,102 @@ void guiimage(char *path, char *action, float *scale, int *overlaid, char *alt, 
     else if(ret&G3D_ROLLOVER)
     {
         alias("guirolloverimgpath", path);
+        alias("guirolloverimgaction", action);
+    }
+}
+
+// SauerWUI - guiimage from base64
+static int guiimgstringid = 0;
+static hashtable<char*, Texture*> guiimgstringcache;
+
+void clearguiimagecache()
+{
+    enumeratekt(guiimgstringcache, char*, key, Texture*, t,
+        cleanuptexture(t);
+    DELETEA(key);
+    );
+    guiimgstringcache.clear();
+}
+
+static inline int decodebase64chr(int c)
+{
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+}
+
+static bool decodebase64(const char* src, vector<uchar>& out)
+{
+    out.shrink(0);
+    unsigned int val = 0;
+    int valb = -8;
+    for (const char* p = src; *p; ++p)
+    {
+        int d = decodebase64chr(*p);
+        if (d == -1)
+        {
+            if (*p == '=') break;
+            else continue;
+        }
+        val = (val << 6) | d;
+        valb += 6;
+        if (valb >= 0)
+        {
+            out.add(uchar((val >> valb) & 0xFF));
+            valb -= 8;
+        }
+    }
+    return out.length() > 0;
+}
+
+void guiimagestring(char* data, char* action, float* scale, int* overlaid, char* alt, char* title)
+{
+    if (!cgui) return;
+
+    const char* b64 = data;
+    const char* comma = strstr(data, ",");
+    if (!strncmp(data, "data:", 5) && comma) b64 = comma + 1;
+
+    Texture** slot = guiimgstringcache.access(b64);
+    if (!slot)
+    {
+        vector<uchar> decoded;
+        if (!decodebase64(b64, decoded)) return;
+
+        SDL_RWops* rw = SDL_RWFromMem(decoded.getbuf(), decoded.length());
+        if (!rw) return;
+        SDL_Surface* s = IMG_Load_RW(rw, 0);
+        SDL_FreeRW(rw);
+        s = fixsurfaceformat(s);
+        if (!s) return;
+
+        ImageData img(s);
+        defformatstring(texname, "<guiimg:%d>", guiimgstringid++);
+        Texture* t = createtransienttexture(texname, img);
+
+        char* key = newstring(b64);
+        guiimgstringcache[key] = t;
+        slot = guiimgstringcache.access(key);
+    }
+
+    Texture* t = *slot;
+
+    int ret = cgui->image(t, *scale, *overlaid != 0 ? title : NULL);
+
+    if (ret & G3D_UP)
+    {
+        if (*action)
+        {
+            updatelater.add().schedule(action);
+            if (shouldclearmenu) clearlater = true;
+        }
+    }
+    else if (ret & G3D_ROLLOVER)
+    {
+        alias("guirolloverimgpath", t->name);
         alias("guirolloverimgaction", action);
     }
 }
@@ -608,6 +707,8 @@ COMMAND(guistrut,"fi");
 COMMAND(guispring, "i");
 COMMAND(guicolumn, "i");
 COMMAND(guiimage,"ssfiss");
+COMMAND(guiimagestring,"ssfiss"); // SauerWUI - guiimage from base64
+COMMAND(clearguiimagecache, "");  //
 COMMAND(guislider,"sbbs");
 COMMAND(guilistslider, "sss");
 COMMAND(guinameslider, "ssss");

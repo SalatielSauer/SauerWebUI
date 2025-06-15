@@ -1113,6 +1113,12 @@ static Texture *newtexture(Texture *t, const char *rname, ImageData &s, int clam
     return t;
 }
 
+// SauerWUI
+Texture* createtransienttexture(const char* name, ImageData& img, int clamp, bool mipit)
+{
+    return newtexture(NULL, name, img, clamp, mipit, false, true);
+}
+
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
 #define RGBAMASKS 0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff
 #define RGBMASKS  0xff0000, 0x00ff00, 0x0000ff, 0

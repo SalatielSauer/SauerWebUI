@@ -68,6 +68,7 @@ extern int texalign(const void *data, int w, int bpp);
 extern void cleanuptexture(Texture *t);
 extern uchar *loadalphamask(Texture *t);
 extern void loadlayermasks();
+extern Texture* createtransienttexture(const char* name, ImageData& img, int clamp = 0, bool mipit = true); // SauerWUI
 extern Texture *cubemapload(const char *name, bool mipit = true, bool msg = true, bool transient = false);
 extern void drawcubemap(int size, const vec &o, float yaw, float pitch, const cubemapside &side, bool onlysky = false);
 extern void loadshaders();
