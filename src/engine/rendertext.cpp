@@ -207,12 +207,66 @@ static float draw_char(Texture *&tex, int c, float x, float y, float scale)
 }
 
 //stack[sp] is current color index
-static void text_color(char c, char *stack, int size, int &sp, bvec color, int a)
+
+// SauerWUI - rgb string
+static int parse_rgb(const char* str, int i, bvec& col)
 {
+    if (!strncmp(&str[i], "<rgb:", 5))
+    {
+        i += 5;
+        int r = 0, g = 0, b = 0;
+        const char* p = &str[i];
+        char* end;
+        r = strtol(p, &end, 10);
+        if (*end == '/')
+        {
+            p = end + 1;
+            g = strtol(p, &end, 10);
+            if (*end == '/')
+            {
+                p = end + 1;
+                b = strtol(p, &end, 10);
+                if (*end == '>')
+                {
+                    col = bvec(clamp(r, 0, 255), clamp(g, 0, 255), clamp(b, 0, 255));
+                    return end - str;
+                }
+            }
+        }
+    }
+    return i - 1;
+}
+
+static int skip_rgb(const char* str, int i)
+{
+    bvec dummy;
+    int end = parse_rgb(str, i, dummy);
+    return end >= i ? end : i - 1;
+}
+
+//static void text_color(char c, char *stack, int size, int &sp, bvec color, int a)
+//{
+static int text_color(const char* str, int i, char* stack, int size, int& sp, bvec& color, int a)
+{
+    char c = str[i];
+    if (c == '<')
+    {
+        bvec col;
+        int end = parse_rgb(str, i, col);
+        if (end >= i)
+        {
+            xtraverts += gle::end();
+            stack[sp] = 'c';
+            color = col;
+            gle::color(color, a);
+            return end;
+        }
+    }
     if(c=='s') // save color
     {
         c = stack[sp];
         if(sp<size-1) stack[++sp] = c;
+        return i; // SauerWUI
     }
     else
     {
@@ -234,6 +288,7 @@ static void text_color(char c, char *stack, int size, int &sp, bvec color, int a
             // provided color: everything else
         }
         gle::color(color, a);
+        return i; // SauerWUI - rgb string
     }
 }
 
@@ -259,7 +314,7 @@ static void text_color(char c, char *stack, int size, int &sp, bvec color, int a
                 for(; str[i+1]; i++)\
                 {\
                     int c = uchar(str[i+1]);\
-                    if(c=='\f') { if(str[i+2]) i++; continue; }\
+                    if(c=='\f') { if(str[i+2]) { if(str[i+1]=='<') i = skip_rgb(str, i+1); else i++; } continue; }\
                     if(i-j > 16) break;\
                     if(!curfont->chars.inrange(c-curfont->charoffset)) break;\
                     float cw = scale*curfont->chars[c-curfont->charoffset].advance;\
@@ -291,7 +346,8 @@ int text_visible(const char *str, float hitx, float hity, int maxwidth)
     #define TEXTINDEX(idx)
     #define TEXTWHITE(idx) if(y+FONTH > hity && x >= hitx) return idx;
     #define TEXTLINE(idx) if(y+FONTH > hity) return idx;
-    #define TEXTCOLOR(idx)
+    //#define TEXTCOLOR(idx)
+    #define TEXTCOLOR(idx) if(str[idx]=='<') idx = skip_rgb(str, idx); // SauerWUI - rgb string
     #define TEXTCHAR(idx) x += cw; TEXTWHITE(idx)
     #define TEXTWORD TEXTWORDSKELETON
     TEXTSKELETON
@@ -310,7 +366,8 @@ void text_posf(const char *str, int cursor, float &cx, float &cy, int maxwidth)
     #define TEXTINDEX(idx) if(idx == cursor) { cx = x; cy = y; break; }
     #define TEXTWHITE(idx)
     #define TEXTLINE(idx)
-    #define TEXTCOLOR(idx)
+    //#define TEXTCOLOR(idx)
+    #define TEXTCOLOR(idx) if(str[idx]=='<') idx = skip_rgb(str, idx); // SauerWUI - rgb string
     #define TEXTCHAR(idx) x += cw;
     #define TEXTWORD TEXTWORDSKELETON if(i >= cursor) break;
     cx = cy = 0;
@@ -329,7 +386,8 @@ void text_boundsf(const char *str, float &width, float &height, int maxwidth)
     #define TEXTINDEX(idx)
     #define TEXTWHITE(idx)
     #define TEXTLINE(idx) if(x > width) width = x;
-    #define TEXTCOLOR(idx)
+    //#define TEXTCOLOR(idx)
+    #define TEXTCOLOR(idx) if(str[idx]=='<') idx = skip_rgb(str, idx); // SauerWUI - rgb string
     #define TEXTCHAR(idx) x += cw;
     #define TEXTWORD x += w;
     width = 0;
@@ -349,7 +407,9 @@ void draw_text(const char *str, int left, int top, int r, int g, int b, int a, i
     #define TEXTINDEX(idx) if(idx == cursor) { cx = x; cy = y; }
     #define TEXTWHITE(idx)
     #define TEXTLINE(idx)
-    #define TEXTCOLOR(idx) if(usecolor) text_color(str[idx], colorstack, sizeof(colorstack), colorpos, color, a);
+    // SauerWUI - rgb string
+    //#define TEXTCOLOR(idx) if(usecolor) text_color(str[idx], colorstack, sizeof(colorstack), colorpos, color, a);
+    #define TEXTCOLOR(idx) if(usecolor) idx = text_color(str, idx, colorstack, sizeof(colorstack), colorpos, color, a); else if(str[idx]=='<') idx = skip_rgb(str, idx);
     #define TEXTCHAR(idx) draw_char(tex, c, left+x, top+y, scale); x += cw;
     #define TEXTWORD TEXTWORDSKELETON
     char colorstack[10];

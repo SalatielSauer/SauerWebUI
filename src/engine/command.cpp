@@ -823,6 +823,17 @@ int unescapestring(char *dst, const char *src, const char *end)
                 case 'n': *dst++ = '\n'; break;
                 case 't': *dst++ = '\t'; break;
                 case 'f': *dst++ = '\f'; break;
+                case '<': // SauerWUI - rgb string
+                    if (src + 4 < end && !strncmp(src, "rgb:", 4))
+                    {
+                        *dst++ = '\f';
+                        *dst++ = '<';
+                        do
+                        {
+                            *dst++ = *src;
+                        } while (src < end && *src++ != '>');
+                        break;
+                    }
                 default: *dst++ = e; break;
             }
         }
