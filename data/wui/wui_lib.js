@@ -17,6 +17,19 @@ function cubescript(cmd, callback) {
 
 window.cubescript = cubescript;
 
+class GameAssets {
+    constructor() {
+        this.absolutePath = 'file:///./';
+        this.path_packages = this.absolutePath + 'packages';
+        this.path_maps = this.path_packages + '/base';
+        window.cubescript('result $allmaps', (allmaps) => {
+            this.allmapnames = allmaps ? allmaps.split(' ') : [];
+        })
+    }
+}
+
+window.gameassets = new GameAssets();
+
 document.addEventListener('keydown', function(e) {
     if (e.altKey && e.key === 'd') {
         e.preventDefault();
@@ -36,7 +49,7 @@ class WUI {
         this.menus = {};
     }
 
-    createMenu(id, body, x, y, title, options = {}) {
+    createMenu(id, body, x, y, title, options = {}, event) {
         this.clearMenu(id);
         const menu = document.createElement('div');
         const container = document.createElement('div');
@@ -89,7 +102,7 @@ class WUI {
             const exitButton = document.createElement('button');
             exitButton.className = 'wui-menu-exit';
             exitButton.innerText = '✕';
-            exitButton.onclick = () => this.hideMenu(id, true);
+            exitButton.onclick = () => this.clearMenu(id, true);
             menu.prepend(exitButton);
         }
 
@@ -99,12 +112,12 @@ class WUI {
 
             let px = 0, py = 0;
             if (typeof x === 'string' && x.endsWith('%')) {
-                px = window.innerWidth * parseFloat(x) / 100 - menu.offsetWidth / 2;
+                px = window.innerWidth * parseFloat(x) / 200 - menu.offsetWidth / 2;
             } else {
                 px = parseInt(x) || 0;
             }
             if (typeof y === 'string' && y.endsWith('%')) {
-                py = window.innerHeight * parseFloat(y) / 100 - menu.offsetHeight / 2;
+                py = window.innerHeight * parseFloat(y) / 200 - menu.offsetHeight / 2;
             } else {
                 py = parseInt(y) || 0;
             }
@@ -122,18 +135,33 @@ class WUI {
             menu.style.position = 'absolute';
         }
 
-
         this.menus[id] = menu;
         this.root.appendChild(menu);
         return menu;
     }
 
-
-    showMenu(id) {
+    showMenu(id, event) {
         const menu = this.menus[id];
         if (menu) {
             menu.classList.add('active');
+            // update menu position if event is provided
+            if (event) {
+                let x = event.clientX - menu.offsetWidth / 2;
+                let y = event.clientY - menu.offsetHeight / 2;
+
+                // ensure the menu stays within the viewport
+                x = Math.max(0, Math.min(window.innerWidth - menu.offsetWidth, x));
+                y = Math.max(0, Math.min(window.innerHeight - menu.offsetHeight, y));
+
+                menu.style.transform = `translate(${x}px, ${y}px)`;
+                menu.setAttribute('pos_x', x);
+                menu.setAttribute('pos_y', y);
+            }
+            if (menu.onshow) {
+                menu.onshow();
+            }
         }
+
     }
 
     hideMenu(id, keep_cursor = false) {
@@ -157,11 +185,17 @@ class WUI {
         }
     }
 
-    clearMenu(id) {
+    clearMenu(id, keep_cursor = false) {
         const menu = this.menus[id];
         if (menu) {
+            if (menu.onclear) {
+                menu.onclear();
+            }
             menu.remove();
             delete this.menus[id];
+            if (!keep_cursor) {
+                cubescript('showcursor 0');
+            }
         }
     }
 
@@ -238,20 +272,6 @@ interact('.wui_draggable').draggable({
     }
 });
 
-window.wui_gui_add = function(id, html, x, y, w, h) {
-    let el = document.getElementById(id);
-    if(!el) {
-        el = document.createElement('div');
-        el.id = id;
-        document.getElementById('wui-root').appendChild(el);
-    }
-    el.style.position = 'absolute';
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.width = w + 'px';
-    el.style.height = h + 'px';
-    el.innerHTML = html;
-};
 
 document.addEventListener('contextmenu', function(event) {
     event.preventDefault();

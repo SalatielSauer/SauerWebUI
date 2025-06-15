@@ -3,6 +3,9 @@
 <head>
 	<meta charset="UTF-8">
 	<script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+
 	<style>
 		a {
 			text-decoration: none;
@@ -209,17 +212,25 @@
 		::-webkit-scrollbar { cursor:pointer; }
 
 		.server-table {
-			max-height: 300px;
+			max-height: 350px;
 			overflow-y: scroll;
 			display: inline-block;
-			font-size: small;
-			width: 512px;
+			font-size: 10px;
+			width: -webkit-fill-available;
 			z-index: 1;
+			justify-items: center;
+		}
+
+		.server-table tr {
+			position: sticky;
 		}
 
 		tr {
 			background-color: #00000085;
-			transition: background-color 0.1s ease-in-out;
+			outline-width: 1px;
+			outline-color: #00000057;
+			outline-style: outset;
+			outline-offset: 1px;
 		}
 
 		td {
@@ -230,6 +241,13 @@
 			background-color: grey;
 			color: black;
 			cursor: pointer;
+		}
+
+		img.icon {
+			width: 54px;
+			min-width: 32px;
+			min-height: 32px;
+			display: block;
 		}
 
 	</style>
