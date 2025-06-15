@@ -50,7 +50,7 @@ class WUI {
     }
 
     createMenu(id, body, x, y, title, options = {}, event) {
-        this.clearMenu(id);
+        this.clearMenu(id, true);
         const menu = document.createElement('div');
         const container = document.createElement('div');
 
@@ -102,7 +102,13 @@ class WUI {
             const exitButton = document.createElement('button');
             exitButton.className = 'wui-menu-exit';
             exitButton.innerText = '✕';
-            exitButton.onclick = () => this.clearMenu(id, true);
+            exitButton.onclick = () => {
+                if (options.clearOnExit === undefined || options.clearOnExit) {
+                    this.clearMenu(id, true);
+                } else {
+                    this.hideMenu(id, true);
+                }
+            }
             menu.prepend(exitButton);
         }
 
