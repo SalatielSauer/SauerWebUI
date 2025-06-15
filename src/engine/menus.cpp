@@ -249,11 +249,19 @@ void guimerge(uint *contents)
 }
 
 //@DOC name and icon are optional
-void guibutton(char *name, char *action, char *icon)
+void guibutton(char *name, char *action, char *icon, float *size)
 {
     if(!cgui) return;
     bool hideicon = !strcmp(icon, "0");
+
+    // SauerWUI - guibutton font size
+    int oldscale = curfont ? curfont->scale : 0;
+    if (curfont && size && *size > 0)
+        curfont->scale = int(curfont->scale * *size);
     int ret = cgui->button(name, GUI_BUTTON_COLOR, hideicon ? NULL : (icon[0] ? icon : (strstr(action, "showgui") ? "menu" : "action")));
+    if(curfont && size && *size > 0)
+        curfont->scale = oldscale;
+
     if(ret&G3D_UP) 
     {
         updatelater.add().schedule(action[0] ? action : name);
@@ -401,10 +409,18 @@ void guitextbox(char *text, int *width, int *height, int *color)
     if(cgui && text[0]) cgui->textbox(text, *width ? *width : 12, *height ? *height : 1, *color ? *color : 0xFFFFFF);
 }
 
-void guitext(char *name, char *icon)
+void guitext(char *name, char *icon, float *size)
 {
     bool hideicon = !strcmp(icon, "0");
+
+    // SauerWUI - guitext font size
+    //if(cgui) cgui->text(name, !hideicon && icon[0] ? GUI_BUTTON_COLOR : GUI_TEXT_COLOR, hideicon ? NULL : (icon[0] ? icon : "info"));
+    int oldscale = curfont ? curfont->scale : 0;
+    if(curfont && size && *size > 0)
+        curfont->scale = int(curfont->scale * *size);
     if(cgui) cgui->text(name, !hideicon && icon[0] ? GUI_BUTTON_COLOR : GUI_TEXT_COLOR, hideicon ? NULL : (icon[0] ? icon : "info"));
+    if(curfont && size && *size > 0)
+        curfont->scale = oldscale;
 }
 
 void guiposition(int *x, int *y)
@@ -686,8 +702,8 @@ void notifywelcome()
 }
  
 COMMAND(newgui, "ssss");
-COMMAND(guibutton, "sss");
-COMMAND(guitext, "ss");
+COMMAND(guibutton, "sssf"); // SauerWUI - guibutton font size
+COMMAND(guitext, "ssf"); // SauerWUI - guitext font size
 COMMAND(guiservers, "eii");
 ICOMMAND(cleargui, "i", (int *n), intret(cleargui(*n)));
 COMMAND(showgui, "s");
