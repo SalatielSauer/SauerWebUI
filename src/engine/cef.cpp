@@ -569,6 +569,45 @@ void cef_run_javascript(char* code)
     }
 }
 
+class DownloadImageCallbackImpl : public CefDownloadImageCallback {
+public:
+    DownloadImageCallbackImpl(cef_image_data_callback_t cb, void* ud)
+        : callback(cb), userdata(ud) {}
+
+    void OnDownloadImageFinished(const CefString& image_url, int http_status_code,
+        CefRefPtr<CefImage> image) override
+    {
+        unsigned char* data = nullptr;
+        size_t size = 0;
+        if (http_status_code == 200 && image && !image->IsEmpty()) {
+            int w = 0, h = 0;
+            CefRefPtr<CefBinaryValue> png = image->GetAsPNG(1.0f, true, w, h);
+            if (png && png->GetSize() > 0) {
+                size = png->GetSize();
+                data = (unsigned char*)malloc(size);
+                png->GetData(data, size, 0);
+            }
+        }
+
+        std::string urlstr = image_url.ToString();
+        if (callback) callback(urlstr.c_str(), data, size, userdata);
+        // let the caller handle freeing the returned data
+    }
+
+    IMPLEMENT_REFCOUNTING(DownloadImageCallbackImpl);
+
+private:
+    cef_image_data_callback_t callback;
+    void* userdata;
+};
+
+void cef_download_image(const char* url, cef_image_data_callback_t cb, void* userdata)
+{
+    if (!g_browser) return;
+    CefRefPtr<DownloadImageCallbackImpl> callback = new DownloadImageCallbackImpl(cb, userdata);
+    g_browser->GetHost()->DownloadImage(url, false, 0, false, callback);
+}
+
 static bool cef_initialized = false;
 static bool browser_created = false;
 

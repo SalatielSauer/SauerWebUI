@@ -68,3 +68,8 @@ extern c_cef_cursor_type_t g_cef_cursor_type; // current cursor type
 typedef void (*cef_input_active_callback_t)(bool active);
 extern cef_input_active_callback_t g_cef_input_active_callback;
 void cef_set_input_active_callback(cef_input_active_callback_t cb);
+
+// download image from URL and return PNG bytes via callback
+// the callback receives malloc-allocated data and is responsible for freeing it
+typedef void (*cef_image_data_callback_t)(const char* url, unsigned char* data, size_t size, void* userdata);
+void cef_download_image(const char* url, cef_image_data_callback_t cb, void* userdata);

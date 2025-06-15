@@ -1,9 +1,10 @@
 // menus.cpp: ingame menu system (also used for scores and serverlist)
 
 #include "engine.h"
-#include "SDL_image.h" // SauerWUI
+#include "SDL_image.h" // SauerWUI - guiimage from base64
+#include "cef.h" // SauerWUI - guiimage from url
 
-extern SDL_Surface* fixsurfaceformat(SDL_Surface* s); // SauerWUI
+extern SDL_Surface* fixsurfaceformat(SDL_Surface* s); // SauerWUI - guiimage from base64
 
 #define GUI_TITLE_COLOR  0xFFDD88
 #define GUI_BUTTON_COLOR 0xFFFFFF
@@ -302,14 +303,30 @@ void guiimage(char *path, char *action, float *scale, int *overlaid, char *alt, 
 // SauerWUI - guiimage from base64
 static int guiimgstringid = 0;
 static hashtable<char*, Texture*> guiimgstringcache;
+// SuaerWUI - guiimage from url
+static int guiimgurlid = 0;
+static hashtable<char*, Texture*> guiimgurlcache;
+static vector<char*> guiimgurlpending;
 
 void clearguiimagecache()
 {
     enumeratekt(guiimgstringcache, char*, key, Texture*, t,
         cleanuptexture(t);
-    DELETEA(key);
+        DELETEA(key);
     );
     guiimgstringcache.clear();
+
+    enumeratekt(guiimgurlcache, char*, key, Texture*, t,
+        cleanuptexture(t);
+        DELETEA(key);
+    );
+    guiimgurlcache.clear();
+
+    loopvrev(guiimgurlpending)
+    {
+        DELETEA(guiimgurlpending[i]);
+        guiimgurlpending.remove(i);
+    }
 }
 
 static inline int decodebase64chr(int c)
@@ -377,6 +394,81 @@ void guiimagestring(char* data, char* action, float* scale, int* overlaid, char*
     }
 
     Texture* t = *slot;
+
+    int ret = cgui->image(t, *scale, *overlaid != 0 ? title : NULL);
+
+    if (ret & G3D_UP)
+    {
+        if (*action)
+        {
+            updatelater.add().schedule(action);
+            if (shouldclearmenu) clearlater = true;
+        }
+    }
+    else if (ret & G3D_ROLLOVER)
+    {
+        alias("guirolloverimgpath", t->name);
+        alias("guirolloverimgaction", action);
+    }
+}
+
+// SauerWUI - guiimage from url
+static void guiimageurl_downloaded(const char* url, unsigned char* data, size_t size, void* userdata)
+{
+    if (data && size > 0)
+    {
+        SDL_RWops* rw = SDL_RWFromMem(data, size);
+        if (rw)
+        {
+            SDL_Surface* s = IMG_Load_RW(rw, 0);
+            SDL_FreeRW(rw);
+            if (s)
+            {
+                s = fixsurfaceformat(s);
+                if (s)
+                {
+                    ImageData img(s);
+                    defformatstring(texname, "<guiurl:%d>", guiimgurlid++);
+                    Texture* t = createtransienttexture(texname, img);
+                    char* key = newstring(url);
+                    guiimgurlcache[key] = t;
+                }
+            }
+        }
+    }
+    if (data) free(data);
+
+    loopvrev(guiimgurlpending)
+    {
+        if (!strcmp(guiimgurlpending[i], url))
+        {
+            DELETEA(guiimgurlpending[i]);
+            guiimgurlpending.remove(i);
+            break;
+        }
+    }
+}
+
+// SauerWUI - guiimage from url
+void guiimageurl(char* url, char* action, float* scale, int* overlaid, char* alt, char* title)
+{
+    if (!cgui) return;
+
+    Texture* t = NULL;
+    Texture** slot = guiimgurlcache.access(url);
+    if (slot) t = *slot;
+    else
+    {
+        bool found = false;
+        loopv(guiimgurlpending) if (!strcmp(guiimgurlpending[i], url)) { found = true; break; }
+        if (!found)
+        {
+            guiimgurlpending.add(newstring(url));
+            cef_download_image(url, guiimageurl_downloaded, NULL);
+        }
+        if (alt[0]) t = textureload(alt, 0, true, false);
+        if (!t || t == notexture) return;
+    }
 
     int ret = cgui->image(t, *scale, *overlaid != 0 ? title : NULL);
 
@@ -724,6 +816,7 @@ COMMAND(guispring, "i");
 COMMAND(guicolumn, "i");
 COMMAND(guiimage,"ssfiss");
 COMMAND(guiimagestring,"ssfiss"); // SauerWUI - guiimage from base64
+COMMAND(guiimageurl, "ssfiss"); // SauerWUI - guiimage from URL
 COMMAND(clearguiimagecache, "");  //
 COMMAND(guislider,"sbbs");
 COMMAND(guilistslider, "sss");
