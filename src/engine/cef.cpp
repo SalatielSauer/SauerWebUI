@@ -8,6 +8,11 @@
 #include "include/wrapper/cef_message_router.h"
 #include "SDL.h"
 #include <filesystem>
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 
 static CefRefPtr<CefBrowser> g_browser;
@@ -630,6 +635,18 @@ void cef_initialize(void* window_handle) {
     settings.log_severity = LOGSEVERITY_VERBOSE;
     settings.multi_threaded_message_loop = false;
     settings.windowless_rendering_enabled = true;
+
+    // allow multiple clients by using a unique cache directory per process
+    std::filesystem::path exeDir = GetExeDir();
+#if defined(_WIN32)
+    DWORD pid = GetCurrentProcessId();
+#else
+    pid_t pid = getpid();
+#endif
+    std::filesystem::path cachePath = exeDir / "cef_cache" / std::to_string(pid);
+    std::filesystem::create_directories(cachePath);
+    CefString(&settings.root_cache_path) = cachePath.string();
+    CefString(&settings.cache_path) = cachePath.string();
 
     // create the application instance
     CefRefPtr<SimpleApp> app = new SimpleApp();
