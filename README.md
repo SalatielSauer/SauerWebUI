@@ -11,6 +11,8 @@ Also, for now, there are some miscellaneous experiments that you will see below.
 There is currently a pre-compiled binary available for Windows x64 only (tested with Windows 10 22H2):
 [Download SauerWebUI JSquare Edition (15/06/2025)]()
 
+The installation is meant to go alongside the vanilla client, that's why essential folders like packages are not included.
+
 ## Building
 If you want to build, there is a Visual Studio 2022 project file in `src/vs/` that you can use.
 
@@ -131,6 +133,9 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/` th
 - ### `guiimagestring <base64 string> [command] <size> <overlay 0/1>`
 	Works similarly to `guiimage`, but instead of specifying a file path for the image, you can provide a string containing an image encoded in base64.
 
+- ### `guiimageurl <url> [command] <size> <overlay 0/1>`
+	Just like `guiimagestring`, but allows loading an image from a url.
+
 - ### `guitext <text> <icon> <size>`
 - ### `guibutton <text> [command] <icon> <size>`
 	It is now possible to set the size of a guitext using the third parameter of the command, or the fourth parameter in the case of guibutton (1 is the default size).
@@ -142,6 +147,12 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/` th
 	Allows adding a new selection to the existing ones, enabling manipulation of multiple geometry or texture regions at once, including non-contiguous areas. (requires `multiselmode 1`)
 - ### `multiselmode <0/1>`
 	Enables experimental multi-selection mode (`addselection`).
+
+<hr>
+
+### Visual Studio Code Syntax Highlighting for CubeScript + JavaScript
+If you use VSCode, there is an extension available that handles syntax highlighting for JavaScript embedded in CubeScript (inside `javascript [ ]` blocks): [CS+JS syntax highlighting for VSCode](https://gist.github.com/SalatielSauer/ecdd6c8fd8a5f2dfb5835ac273fe21db).
+
 
 <hr>
 
