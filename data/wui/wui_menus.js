@@ -6,7 +6,7 @@ const btn_leave = window.wui.createButton("Exit", () => {
 function _createMainMenu() {
 	const body = document.createElement('div');
 	body.innerHTML = '<p style="font-size: 10px">Unfinished HTML/CSS/JS UI</p>';
-	const menu = window.wui.createMenu('main', body, '50%', '50%', 'Main Menu', { allowDrag: false, allowExit: true });
+	const menu = window.wui.createMenu('main', body, '50%', '50%', 'SauerWebUI Test', { allowDrag: false, allowExit: true });
 	menu.style.zIndex = -1;
 	body.appendChild(window.wui.createTextInput('name', (e) => {
 		//console.log("test: hello", e.target.value);
@@ -26,6 +26,23 @@ function _createMainMenu() {
 
 	body.appendChild(window.wui.createButton("Web Browser", (event) => {
 		window.wui.showMenu('webbrowser', event);
+	}))
+
+	body.appendChild(window.wui.createButton("Dev Tools", (event) => {
+		window.cefQuery({ request: 'openDevTools' });
+	}))
+
+	body.appendChild(window.wui.createButton("Text Editor", (event) => {
+		
+	}))
+
+	body.appendChild(window.wui.createButton("SauerTracker", (event) => {
+
+	}))
+
+	body.appendChild(window.wui.createButton("P2P File Share", () => {
+		window._wui_create_webrtc_menu();
+		window.wui.showMenu('p2pfileshare');
 	}))
 
 	/*body.appendChild(window.wui.createButton("Map Upload & Manage", () => {
@@ -257,5 +274,5 @@ newgui main [guistayopen [
         guibutton "quit" [ quit ] "exit"
     ]
 ]] 0
-	
+showgui main
 `)
