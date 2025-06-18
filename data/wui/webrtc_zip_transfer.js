@@ -61,7 +61,7 @@ function _wui_create_webrtc_menu() {
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = '.zip,.gz,.gzip';
+    fileInput.accept = '.zip,.gz,.gzip,.ogz';
     body.appendChild(fileInput);
 
     const btnSend = window.wui.createButton('Send File', () => {
@@ -121,6 +121,9 @@ function _wui_create_webrtc_menu() {
         dataChannel.binaryType = 'arraybuffer';
         dataChannel.onopen = () => { btnSend.disabled = false; status.textContent = 'Channel open'; };
         dataChannel.onclose = () => { btnSend.disabled = true; status.textContent = 'Channel closed'; };
+        dataChannel.onerror = (err) => {
+            console.error('[P2P] DataChannel error:', err.reason, err);
+        };
         let incoming = [];
         let incomingSize = 0;
         let fileInfo = null;
@@ -137,7 +140,8 @@ function _wui_create_webrtc_menu() {
                     const pct = Math.floor(msg.received / msg.total * 100);
                     progress.textContent = `Peer receiving: ${msg.received}/${msg.total} (${pct}%)`;
                 } else if (msg.type === 'recv-complete') {
-                    status.textContent = 'Transfer complete';
+                    status.textContent = `Transfer complete: ${msg.name}`;
+                    console.log('[P2P] Transfer complete:', msg);
                     progress.textContent = '';
                 } else if (msg.type === 'file-end') {
                     if (fileInfo) finalizeIncomingFile();
@@ -148,32 +152,49 @@ function _wui_create_webrtc_menu() {
                 const pct = Math.floor(incomingSize / fileInfo.size * 100);
                 progress.textContent = `Receiving ${fileInfo.name}: ${incomingSize}/${fileInfo.size} (${pct}%)`;
                 dataChannel.send(JSON.stringify({type:'recv-progress',received:incomingSize,total:fileInfo.size}));
-                if (incomingSize >= fileInfo.size) finalizeIncomingFile();
+                if (incomingSize >= fileInfo.size) {
+                    dataChannel.send(JSON.stringify({type:'recv-complete', name:fileInfo.name}));
+                    finalizeIncomingFile();
+                }
             }
         };
 
-        function finalizeIncomingFile(){
+        function finalizeIncomingFile() {
             if (downloadLink.href && downloadLink.href.startsWith('blob:')) {
                 URL.revokeObjectURL(downloadLink.href);
             }
+
             const blob = new Blob(incoming);
             const url = URL.createObjectURL(blob);
+            
             downloadLink.href = url;
             downloadLink.download = fileInfo.name;
-            downloadLink.textContent = `Download ${fileInfo.name}`;
-            downloadLink.style.display = 'inline';
-            // attempt automatic download
-            //downloadLink.click();
-            setTimeout(() => {
-                downloadLink.click();
-            }, 500); 
-            status.textContent = 'File received';
-            dataChannel.send(JSON.stringify({type:'recv-complete'}));
+            downloadLink.textContent = `Save ${fileInfo.name}`;
+            downloadLink.style.display = 'inline-block';
+            console.log('[P2P] File received:', fileInfo.name, fileInfo.size, 'bytes');
+            status.textContent = 'File ready to save.';
+            progress.textContent = '';
+
+            downloadLink.onclick = (e) => {
+                status.textContent = 'Saving...';
+                setTimeout(() => {
+                    window.cubescript(`findfile ${e.target.download}`, (fileExists) => {
+                        if (fileExists) {
+                            status.textContent = `File "${e.target.download}" saved successfully!`;
+                            downloadLink.style.display = 'none';
+                        } else {
+                            status.textContent = 'Failed to save, please try again.';
+                            downloadLink.style.display = 'inline-block';
+                        }
+                    });
+                }, 500);
+            };
+
             incoming = [];
             incomingSize = 0;
             fileInfo = null;
-            progress.textContent = '';
         }
+
     }
 
     menu.onclear = () => {
