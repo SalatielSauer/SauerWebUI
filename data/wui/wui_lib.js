@@ -47,9 +47,19 @@ class WUI {
             this.root = root;
         }
         this.menus = {};
+        this.options = {};
+        this.onEscape = (callback = ()=>{}) => {
+            Object.keys(this.menus).forEach(id => {
+                if (this.options?.clearOnEscape == true) {
+                    this.clearMenu(id);
+                    callback(id);
+                }
+            });
+        }
     }
 
     createMenu(id, body, x, y, title, options = {}, event) {
+        this.options = options;
         this.clearMenu(id, true);
         const menu = document.createElement('div');
         const container = document.createElement('div');
@@ -62,7 +72,7 @@ class WUI {
 
         menu.appendChild(container);
 
-        if (options.allowFullscreen) {
+        if (this.options.allowFullscreen) {
             const overlay = document.createElement('div');
             overlay.className = 'wui-menu-overlay';
 
@@ -98,22 +108,23 @@ class WUI {
             menu.prepend(titleBar);
         }
 
-        if (options.allowExit) {
+        if (this.options.allowExit) {
             const exitButton = document.createElement('button');
             exitButton.className = 'wui-menu-exit';
             exitButton.innerText = '✕';
             exitButton.onclick = () => {
-                if (options.clearOnExit === undefined || options.clearOnExit) {
-                    this.clearMenu(id, true);
+                if (this.options.clearOnExit === undefined || this.options.clearOnExit) {
+                    this.clearMenu(id);
                 } else {
-                    this.hideMenu(id, true);
+                    this.hideMenu(id);
                 }
             }
             menu.prepend(exitButton);
         }
 
-        if (options.allowDrag === undefined) { options.allowDrag = true; }
-        if (options.allowDrag) {
+        if (this.options.allowDrag === undefined) { this.options.allowDrag = true; }
+        if (this.options.clearOnEscape === undefined) { this.options.clearOnEscape = true; }
+        if (this.options.allowDrag) {
             menu.classList.add('wui_draggable');
 
             let px = 0, py = 0;
@@ -134,7 +145,7 @@ class WUI {
             menu.style.transform = `translate(${px}px, ${py}px)`;
             menu.setAttribute('pos_x', px);
             menu.setAttribute('pos_y', py);
-            // menu.setAttribute('force', options.allowDrag ? 'true' : 'false');
+            // menu.setAttribute('force', this.options.allowDrag ? 'true' : 'false');
         } else {
             menu.style.left = x;
             menu.style.top = y;
@@ -173,10 +184,10 @@ class WUI {
     hideMenu(id, keep_cursor = false) {
         const menu = this.menus[id];
         if (menu) {
-            menu.classList.remove('active');
             if (!keep_cursor) {
-                cubescript('showcursor 0');
+                window.cubescript('showcursor 0');
             }
+            menu.classList.remove('active');
         }
     }
 
@@ -194,14 +205,14 @@ class WUI {
     clearMenu(id, keep_cursor = false) {
         const menu = this.menus[id];
         if (menu) {
+            if (!keep_cursor) {
+                window.cubescript('showcursor 0');
+            }
             if (menu.onclear) {
                 menu.onclear();
             }
             menu.remove();
             delete this.menus[id];
-            if (!keep_cursor) {
-                cubescript('showcursor 0');
-            }
         }
     }
 
