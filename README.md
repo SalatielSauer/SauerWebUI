@@ -148,6 +148,38 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/` th
 - ### `multiselmode <0/1>`
 	Enables experimental multi-selection mode (`addselection`).
 
+- ### `loopvarsbyprefix <var> <prefix> [command]`
+	Iterate through all existing variables that match 'prefix' and store them in 'var' when executing the command, similar to `looplist`.
+
+- ### `prunevarsbyprefix <prefix>`
+	Remove all variables that match 'prefix', preventing them from being saved in the config.cfg file.
+
+- ### `mapassets [json]`
+	Map variable to create an automatic menu with download buttons for external assets. It is sent via sendmap and can go in your map.cfg by following the json format:
+	```json
+	mapassets [
+		{
+			"assetname": "My_Custom_Asset",
+			"assetsrc": "https://github.com/CubeScript/Sauer-Vslot-Text-Sender/releases/download/v0.1/vsts.zip",
+			"assetthumb": "https://avatars.githubusercontent.com/u/9287152?s=40&v=4",
+			"assetversion": 1
+		},
+		{
+			"assetname": "Skin-Colorizer",
+			"assetsrc": "https://github.com/CubeScript/Sauer-Skin-Colorizer/releases/download/v0.4-lite/skincolorizer.zip",
+			"assetthumb": "https://github.com/SalatielSauer/misc/raw/master/skincolorizerlite_demo3.gif?raw=true",
+			"assetversion": 1
+		}
+	]
+	```
+	As soon as the map loads (`mapstart`), the player will be prompted with a menu allowing them to download each asset, which will be added to the `home/assets/<asset name>` folder. Assets must have a unique name. You can suggest asset updates by bumping the assetversion, but it's up to the player to update or revert updates.
+
+- ### `setmapvar <var> <value>`
+	Create custom map variables that are stored along with the map file.
+
+- ### `getmapvar <var>`
+	Retrieve the value of a map variable (such as those created with `setmapvar`).
+
 <hr>
 
 ### Visual Studio Code Syntax Highlighting for CubeScript + JavaScript

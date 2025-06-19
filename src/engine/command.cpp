@@ -3511,6 +3511,29 @@ void strsplice(const char *s, const char *vals, int *skip, int *count)
 }
 COMMAND(strsplice, "ssii");
 
+// SauerWUI - custom mapvars
+void setmapvar(const char* name, const char* val)
+{
+    ident* id = idents.access(name);
+    if (!id || id->type != ID_SVAR)
+    {
+        char** storage = new char*;
+        *storage = newstring("");
+        addident(ident(ID_SVAR, newstring(name), storage, NULL, IDF_OVERRIDE));
+        id = idents.access(name);
+    }
+    setsvar(name, val);
+}
+
+const char* getmapvar(const char* name)
+{
+    ident* id = idents.access(name);
+    return (id && id->type == ID_SVAR) ? *id->storage.s : "";
+}
+
+ICOMMAND(setmapvar, "ss", (char* name, char* val), setmapvar(name, val));
+ICOMMAND(getmapvar, "s", (char* name), result(getmapvar(name)));
+
 // SauerWUI - prune vars by prefix
 #ifndef STANDALONE
 static void prunevarsbyprefixfn(const char* prefix)
@@ -3548,6 +3571,27 @@ static void prunevarsbyprefixfn(const char* prefix)
 }
 ICOMMAND(prunevarsbyprefix, "s", (char* prefix), prunevarsbyprefixfn(prefix));
 #endif
+
+// SauerWUI - loop vars by prefix
+static void loopvarsbyprefixfn(ident* id, const char* prefix, const uint* body)
+{
+    if (id->type != ID_ALIAS) return;
+    identstack stack;
+    vector<char*> vars;
+    size_t len = strlen(prefix);
+    enumerate(idents, ident, v,
+        {
+            if (!strncmp(v.name, prefix, len)) vars.add(newstring(v.name));
+        });
+    loopv(vars)
+    {
+        char* name = vars[i];
+        setiter(*id, name, stack);
+        execute(body);
+    }
+    if (vars.length()) poparg(*id);
+}
+ICOMMAND(loopvarsbyprefix, "rse", (ident* id, char* prefix, uint* body), loopvarsbyprefixfn(id, prefix, body));
 
 #ifndef STANDALONE
 ICOMMAND(getmillis, "i", (int *total), intret(*total ? totalmillis : lastmillis));
