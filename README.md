@@ -14,7 +14,9 @@ There is currently a pre-compiled binary available for Windows x64 only (tested 
 The installation is meant to go alongside the vanilla client, that's why essential folders like packages are not included.
 
 ## Building
-If you want to build, there is a Visual Studio 2022 project file in `src/vs/` that you can use.
+If you want to build, there is a Visual Studio 2022 project file in `src/vs/`.
+
+If you can help with a setup to build on Linux, it would be appreciated.
 
 ## WUI
 
@@ -129,6 +131,11 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/` th
 
 ---
 
+If you have a better idea for an interface, or improvements for the current one, feel free to suggest them. While much of the current functionality revolves around the default WUI, the goal is to allow multiple interfaces to coexist, so players can choose which one to use at any given time.
+
+There are some experimental files in the `data/wui` folder, some of which don’t lead to anything yet. Play around with them and see if you can get anything useful :)
+
+
 ## Misc
 - ### `guiimagestring <base64 string> [command] <size> <overlay 0/1>`
 	Works similarly to `guiimage`, but instead of specifying a file path for the image, you can provide a string containing an image encoded in base64.
@@ -172,7 +179,7 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/` th
 		}
 	]
 	```
-	As soon as the map loads (`mapstart`), the player will be prompted with a menu allowing them to download each asset, which will be added to the `home/assets/<asset name>` folder. Assets must have a unique name. You can suggest asset updates by bumping the assetversion, but it's up to the player to update or revert updates.
+	As soon as the map loads (`mapstart`), the player will be prompted with a menu allowing them to download each asset, which will be added to the `home/assets/<asset name>` folder. Assets must have a unique name. You can suggest asset updates by bumping the `assetversion`.
 
 - ### `setmapvar <var> <value>`
 	Create custom map variables that are stored along with the map file.
@@ -181,6 +188,7 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/` th
 	Retrieve the value of a map variable (such as those created with `setmapvar`).
 
 <hr>
+
 
 ### Visual Studio Code Syntax Highlighting for CubeScript + JavaScript
 If you use VSCode, there is an extension available that handles syntax highlighting for JavaScript embedded in CubeScript (inside `javascript [ ]` blocks): [CS+JS syntax highlighting for VSCode](https://gist.github.com/SalatielSauer/ecdd6c8fd8a5f2dfb5835ac273fe21db).

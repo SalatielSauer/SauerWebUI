@@ -936,6 +936,7 @@ static void checkmousemotion(int &dx, int &dy)
 // Tracks whether a text field in the embedded browser currently has focus.
 // Updated via cef_set_input_active_callback.
 extern bool cef_input_active;
+extern int showcursor;
 void on_cef_input_active(bool active)
 {
     textinput(active); // enable/disable SDL text input
@@ -1076,11 +1077,15 @@ void checkinput()
                 int deltaY = event.wheel.y * 120;
                 cef_browser_mouse_wheel(deltaX, deltaY);
 
-                if(event.wheel.y > 0) { processkey(-4, true); processkey(-4, false); }
-                else if(event.wheel.y < 0) { processkey(-5, true); processkey(-5, false); }
-                else if(event.wheel.x > 0) { processkey(-8, true); processkey(-8, false); }
-                else if(event.wheel.x < 0) { processkey(-9, true); processkey(-9, false); }
-                break;
+                // when interacting with CEF (scrolling a web page) avoid
+                // triggering the game's universal scroll action
+                if (!showcursor && !cef_input_active)
+                {
+                    if (event.wheel.y > 0) { processkey(-4, true); processkey(-4, false); }
+                    else if (event.wheel.y < 0) { processkey(-5, true); processkey(-5, false); }
+                    else if (event.wheel.x > 0) { processkey(-8, true); processkey(-8, false); }
+                    else if (event.wheel.x < 0) { processkey(-9, true); processkey(-9, false); }
+                }
         }
     }
 
