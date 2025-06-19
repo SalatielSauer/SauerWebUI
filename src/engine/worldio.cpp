@@ -1077,10 +1077,16 @@ bool load_world(const char *mname, const char *cname)        // still supports a
     loopi(hdr.numvars)
     {
         int type = f->getchar(), ilen = f->getlil<ushort>();
-        string name;
+
+        // SauerWUI
+        /*string name;
         f->read(name, min(ilen, MAXSTRLEN-1));
         name[min(ilen, MAXSTRLEN-1)] = '\0';
-        if(ilen >= MAXSTRLEN) f->seek(ilen - (MAXSTRLEN-1), SEEK_CUR);
+        if(ilen >= MAXSTRLEN) f->seek(ilen - (MAXSTRLEN-1), SEEK_CUR);*/
+        char* name = newstring(ilen);
+        f->read(name, ilen);
+        name[ilen] = '\0';
+
         ident *id = getident(name);
         bool exists = id && id->type == type && id->flags&IDF_OVERRIDE;
         switch(type)
@@ -1104,15 +1110,22 @@ bool load_world(const char *mname, const char *cname)        // still supports a
             case ID_SVAR:
             {
                 int slen = f->getlil<ushort>();
-                string val;
+                // SauerWUI
+                /*string val;
                 f->read(val, min(slen, MAXSTRLEN-1));
                 val[min(slen, MAXSTRLEN-1)] = '\0';
-                if(slen >= MAXSTRLEN) f->seek(slen - (MAXSTRLEN-1), SEEK_CUR);
+                if(slen >= MAXSTRLEN) f->seek(slen - (MAXSTRLEN-1), SEEK_CUR);*/
+                char* val = newstring(slen);
+                f->read(val, slen);
+                val[slen] = '\0';
+
                 if(exists) setsvar(name, val);
                 if(dbgvars) conoutf(CON_DEBUG, "read svar %s: %s", name, val);
+                delete[] val; // SauerWUI
                 break;
             }
         }
+        delete[] name; // SauerWUI
     }
     if(dbgvars) conoutf(CON_DEBUG, "read %d vars", hdr.numvars);
 
