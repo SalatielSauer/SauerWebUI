@@ -3511,6 +3511,44 @@ void strsplice(const char *s, const char *vals, int *skip, int *count)
 }
 COMMAND(strsplice, "ssii");
 
+// SauerWUI - prune vars by prefix
+#ifndef STANDALONE
+static void prunevarsbyprefixfn(const char* prefix)
+{
+    size_t len = strlen(prefix);
+    enumerate(idents, ident, id,
+        {
+            if (!strncmp(id.name, prefix, len))
+            {
+                id.flags &= ~(IDF_PERSIST | IDF_OVERRIDDEN);
+                switch (id.type)
+                {
+                    case ID_VAR:
+                        *id.storage.i = 0;
+                        id.changed();
+                        break;
+                    case ID_FVAR:
+                        *id.storage.f = 0.0f;
+                        id.changed();
+                        break;
+                    case ID_SVAR:
+                        delete[] * id.storage.s;
+                        *id.storage.s = newstring("");
+                        id.changed();
+                        break;
+                    case ID_ALIAS:
+                        if (id.valtype == VAL_STR) delete[] id.val.s;
+                        cleancode(id);
+                        id.valtype = VAL_STR;
+                        id.val.s = newstring("");
+                        break;
+                }
+            }
+        });
+}
+ICOMMAND(prunevarsbyprefix, "s", (char* prefix), prunevarsbyprefixfn(prefix));
+#endif
+
 #ifndef STANDALONE
 ICOMMAND(getmillis, "i", (int *total), intret(*total ? totalmillis : lastmillis));
 
