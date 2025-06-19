@@ -13,7 +13,7 @@
 #else
 #include <unistd.h>
 #endif
-
+#include <unordered_map>
 
 static CefRefPtr<CefBrowser> g_browser;
 
@@ -33,7 +33,6 @@ void cef_set_browser_loaded_callback(cef_browser_loaded_callback_t cb) {
 }
 
 // callback allowing the engine to handle 'execident' requests from javascript via cefQuery
-
 cef_execident_callback_t g_execident_callback = nullptr;
 void cef_set_execident_callback(cef_execident_callback_t cb) {
     g_execident_callback = cb;
@@ -63,11 +62,27 @@ std::string GetExeDir() {
     return (pos == std::string::npos) ? "" : fullPath.substr(0, pos + 1);
 }
 
+static std::string download_subdir = "";
+
+struct DownloadCallbackInfo {
+    CefRefPtr<CefMessageRouterBrowserSide::Callback> callback;
+    std::string path;
+};
+
+static std::unordered_map<uint32_t, DownloadCallbackInfo> g_download_callbacks;
+static std::unordered_map<std::string, CefRefPtr<CefMessageRouterBrowserSide::Callback>> g_pending_downloads;
+
 std::string getDownloadPath(const std::string& filename) {
     std::filesystem::path exeDir = GetExeDir();
-    std::filesystem::path homePath = exeDir / ".." / "HOME" / filename; // todo: we should not hardcode the home folder
+    std::filesystem::path homePath = exeDir / ".." / "HOME"; // todo: we should not hardcode the home folder
+    if (!download_subdir.empty()) {
+        homePath /= download_subdir;
+        std::filesystem::create_directories(homePath);
+    }
+    homePath /= filename;
     return std::filesystem::absolute(homePath).string();
 }
+
 
 class DownloadHandler : public CefDownloadHandler {
 public:
@@ -75,26 +90,79 @@ public:
         CefRefPtr<CefBrowser> browser,
         CefRefPtr<CefDownloadItem> download_item,
         const CefString& suggested_name,
-        CefRefPtr<CefBeforeDownloadCallback> callback) override
+        CefRefPtr<CefBeforeDownloadCallback> callback
+    ) override
     {
-        std::string exeDir = GetExeDir();
-        std::string path = getDownloadPath(suggested_name.ToString());
-        callback->Continue(path, false); // false = save automatically, true = show dialog
+        OutputDebugStringA("OnBeforeDownload!!\n");
+
+        std::string real_url = download_item->GetURL().ToString();
+        //OutputDebugStringA(("OnBeforeDownload, CefDownloadItem->GetURL(): " + real_url + "\n").c_str());
+
+        if (!g_pending_downloads.empty()) {
+            auto it = g_pending_downloads.begin(); // first pending (token->callback)
+            std::string token = it->first;
+            //OutputDebugStringA(("Matched pending download with token: " + token + "\n").c_str());
+
+            std::string path = getDownloadPath(suggested_name.ToString());
+            callback->Continue(path, false);
+
+            // register the callback using the download ID
+            g_download_callbacks[download_item->GetId()] = { it->second, path };
+            g_pending_downloads.erase(it);
+            //OutputDebugStringA("Added callback to g_download_callbacks by token!\n");
+        }
+        else {
+            //OutputDebugStringA("No pending download token found in g_pending_downloads!\n");
+            std::string path = getDownloadPath(suggested_name.ToString());
+            callback->Continue(path, false);
+        }
+
+        download_subdir.clear();
         return true;
     }
-
 
     void OnDownloadUpdated(
         CefRefPtr<CefBrowser> browser,
         CefRefPtr<CefDownloadItem> download_item,
         CefRefPtr<CefDownloadItemCallback> callback
     ) override {
-        // track download progress here
+        auto it = g_download_callbacks.find(download_item->GetId());
+        if (it == g_download_callbacks.end()) {
+            // no callback yet (probably first call), just ignore
+            //OutputDebugStringA("OnDownloadUpdated: no callback registered, ignoring this event\n");
+            return;
+        }
+
+        CefRefPtr<CefMessageRouterBrowserSide::Callback> cb = it->second.callback;
+
+        int percent = 0;
+        int64_t totalBytes = download_item->GetTotalBytes();
+        if (totalBytes > 0) {
+            percent = static_cast<int>(download_item->GetReceivedBytes() * 100 / totalBytes);
+        }
+        char msg[128];
+        if (totalBytes > 0) {
+            snprintf(msg, sizeof(msg), "{\"status\":\"progress\",\"percent\":%d}", percent);
+        }
+        else {
+            snprintf(msg, sizeof(msg), "{\"status\":\"progress\",\"percent\":%d,\"received\":%lld}", percent, download_item->GetReceivedBytes());
+        }
+
+        cb->Success(msg);
+
+        if (download_item->IsComplete()) {
+            std::string done = std::string("{\"status\":\"complete\",\"path\":\"") + it->second.path + "\"}";
+            cb->Success(done);
+            g_download_callbacks.erase(it);
+        }
+        else if (download_item->IsCanceled()) {
+            cb->Failure(-1, "canceled");
+            g_download_callbacks.erase(it);
+        }
     }
 
     IMPLEMENT_REFCOUNTING(DownloadHandler);
 };
-
 
 
 // handles application-level callbacks and render process events for cef
@@ -280,6 +348,28 @@ public:
             else {
                 callback->Failure(-1, "No execident callback set");
             }
+            return true;
+        }
+
+        // download file request
+        if (req.rfind("downloadfile:", 0) == 0) {
+            std::string data = req.substr(strlen("downloadfile:"));
+            std::string url, subdir, token;
+            size_t bar1 = data.find('|');
+            size_t bar2 = data.rfind('|');
+            if (bar1 != std::string::npos && bar2 != std::string::npos && bar1 != bar2) {
+                url = data.substr(0, bar1);
+                subdir = data.substr(bar1 + 1, bar2 - bar1 - 1);
+                token = data.substr(bar2 + 1);
+            }
+            else {
+                url = data;
+                subdir = "";
+                token = "default";
+            }
+            //OutputDebugStringA(("Storing pending download for token: " + token + "\n").c_str());
+            g_pending_downloads[token] = callback;
+            cef_start_download(url.c_str(), subdir.c_str());
             return true;
         }
 
@@ -611,6 +701,13 @@ void cef_download_image(const char* url, cef_image_data_callback_t cb, void* use
     if (!g_browser) return;
     CefRefPtr<DownloadImageCallbackImpl> callback = new DownloadImageCallbackImpl(cb, userdata);
     g_browser->GetHost()->DownloadImage(url, false, 0, false, callback);
+}
+
+void cef_start_download(const char* url, const char* subdir)
+{
+    if (!g_browser) return;
+    download_subdir = subdir ? subdir : "";
+    g_browser->GetHost()->StartDownload(url);
 }
 
 static bool cef_initialized = false;

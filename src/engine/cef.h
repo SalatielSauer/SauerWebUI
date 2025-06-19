@@ -73,3 +73,6 @@ void cef_set_input_active_callback(cef_input_active_callback_t cb);
 // the callback receives malloc-allocated data and is responsible for freeing it
 typedef void (*cef_image_data_callback_t)(const char* url, unsigned char* data, size_t size, void* userdata);
 void cef_download_image(const char* url, cef_image_data_callback_t cb, void* userdata);
+
+// download a file and store it under HOME/subdir
+void cef_start_download(const char* url, const char* subdir);
