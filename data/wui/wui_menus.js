@@ -1,6 +1,6 @@
 
 const btn_leave = window.wui.createButton("Exit", () => {
-	cubescript(`if $isconnected [ disconnect ] [ quit ]`);
+	window.cubescript(`if $isconnected [ disconnect ] [ quit ]`);
 })
 
 function _createMainMenu() {
@@ -10,9 +10,15 @@ function _createMainMenu() {
 	menu.style.zIndex = -1;
 	body.appendChild(window.wui.createTextInput('name', (e) => {
 		//console.log("test: hello", e.target.value);
-		cubescript(`name ${e.target.value}`);
+		window.cubescript(`name ${e.target.value}`);
 	}));
 	
+	body.appendChild(window.wui.createButton("Map Assets", (event) => {
+		window.checkMapAssets((callback) => {
+			console.log("\f8Map assets:\f2", callback);
+		});
+	}))
+
 	body.appendChild(window.wui.createButton("Server Browser", () => {
 		_wui_create_server_browser();
 		window.wui.showMenu('serverbrowser');
@@ -20,7 +26,7 @@ function _createMainMenu() {
 	
 	body.appendChild(window.wui.createButton("Geometry Editor", () => {
 		//window.wui.showMenu('mapeditor');
-		cubescript(`newmap`);
+		window.cubescript(`newmap`);
 		window.wui.hideMenu('main');
 	}))
 
@@ -53,14 +59,14 @@ function _createMainMenu() {
 	
 	body.appendChild(btn_leave);
 	setInterval(() => {
-		cubescript(`result $isconnected`, (result) => {
+		window.cubescript(`result $isconnected`, (result) => {
 			//console.log(result);
 			btn_leave.textContent = result == "1" ? "Disconnect" : "Exit";
 		});
 	}, 100);
 
-	menu.onclear = () => {
-		cubescript(`showgui main`);
+	menu.ondisappear = () => {
+		window.cubescript(`if $mainmenu [ showgui main ]`);
 	}
 
 }
@@ -101,7 +107,7 @@ function _wui_create_server_browser() {
 	}
 
 	let refresh = () => {
-		cubescript('json_listservers 1', (serversJson) => {
+		window.cubescript('json_listservers 1', (serversJson) => {
 			try {
 				all_servers_raw = serversJson;
 				all_servers = JSON.parse(serversJson);
@@ -168,7 +174,7 @@ function _wui_create_server_browser() {
 				<td>${server.ping}</td>
 			`;
 			row.onclick = () => {
-				cubescript(`connect ${server.ip} ${server.port}`);
+				window.cubescript(`connect ${server.ip} ${server.port}`);
 				window.wui.hideMenu('serverbrowser');
 			};
 			tbody.appendChild(row);
@@ -208,7 +214,7 @@ function _wui_create_server_browser() {
 	refresh();
 	draw_servers();
     setTimeout(do_refresh, 1000);
-	wui.onclear = () => {
+	wui.ondisappear = () => {
 		clearInterval(loop);
 		server_browser_cache = [];
 	}
@@ -221,7 +227,7 @@ window._create_menu_browser = _create_menu_browser;
 //_create_menu_browser();
 //window.wui.showMenu('main');
 
-cubescript(`
+window.cubescript(`
 newgui main [guistayopen [
 	guitext "^<rgb:255/100/155>SauerWebUI (v0.1)" 0 0.5
 	guistrut -0.5
@@ -231,7 +237,7 @@ newgui main [guistayopen [
 			javascript [
 				window._createMainMenu();
 				window._create_menu_browser();
-				window.wui.toggleMenu('main');
+				window.wui.showMenu('main');
 			]
 			showcursor 1
 		] "arrow_fw" 0.5

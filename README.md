@@ -18,6 +18,9 @@ If you want to build, there is a Visual Studio 2022 project file in `src/vs/`.
 
 If you can help with a setup to build on Linux, it would be appreciated.
 
+## Known Issues
+It won't work if you install it side by side with a P1xbraten installation (reasons I still don't know), so I recommend installing it alongside the vanilla installation.
+
 ## WUI
 
 - ### `javascript [ ... ]`

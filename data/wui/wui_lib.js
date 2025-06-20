@@ -22,7 +22,7 @@ class GameAssets {
         this.absolutePath = 'file:///./';
         this.path_packages = this.absolutePath + 'packages';
         this.path_maps = this.path_packages + '/base';
-        window.cubescript('result $allmaps', (allmaps) => {
+        window.cubescript('nodebug [ result $allmaps ]', (allmaps) => {
             this.allmapnames = allmaps ? allmaps.split(' ') : [];
         })
     }
@@ -48,19 +48,20 @@ class WUI {
         }
         this.menus = {};
         this.options = {};
+        this.openMenuStack = [];
         this.onEscape = (callback = ()=>{}) => {
-            Object.keys(this.menus).forEach(id => {
-                if (this.options?.clearOnEscape == true) {
-                    this.clearMenu(id);
-                    callback(id);
-                }
-            });
+            // get topmost menu id
+            const id = this.openMenuStack[this.openMenuStack.length-1];
+            if (this.openMenuStack.length > 0) {
+                this.clearMenu(id, this.openMenuStack.length > 1, false);
+            }
+            callback(this.openMenuStack, this.menus[id]);            
         }
     }
 
     createMenu(id, body, x, y, title, options = {}, event) {
         this.options = options;
-        this.clearMenu(id, true);
+        this.clearMenu(id, true, false);
         const menu = document.createElement('div');
         const container = document.createElement('div');
 
@@ -123,7 +124,6 @@ class WUI {
         }
 
         if (this.options.allowDrag === undefined) { this.options.allowDrag = true; }
-        if (this.options.clearOnEscape === undefined) { this.options.clearOnEscape = true; }
         if (this.options.allowDrag) {
             menu.classList.add('wui_draggable');
 
@@ -161,6 +161,11 @@ class WUI {
         const menu = this.menus[id];
         if (menu) {
             menu.classList.add('active');
+            if (this.openMenuStack[this.openMenuStack.length-1] !== id) {
+                // Remove if already exists (avoid duplicates)
+                this.openMenuStack = this.openMenuStack.filter(mid => mid !== id);
+                this.openMenuStack.push(id);
+            }
             // update menu position if event is provided
             if (event) {
                 let x = event.clientX - menu.offsetWidth / 2;
@@ -184,10 +189,14 @@ class WUI {
     hideMenu(id, keep_cursor = false) {
         const menu = this.menus[id];
         if (menu) {
-            if (!keep_cursor) {
+            this.openMenuStack = this.openMenuStack.filter(mid => mid !== id);
+            if (!keep_cursor && this.openMenuStack.length === 0) {
                 window.cubescript('showcursor 0');
             }
             menu.classList.remove('active');
+            if (menu.ondisappear) {
+                menu.ondisappear();
+            }
         }
     }
 
@@ -202,14 +211,15 @@ class WUI {
         }
     }
 
-    clearMenu(id, keep_cursor = false) {
+    clearMenu(id, keep_cursor = false, dispatch = true) {
         const menu = this.menus[id];
         if (menu) {
-            if (!keep_cursor) {
+            this.openMenuStack = this.openMenuStack.filter(mid => mid !== id);
+            if (!keep_cursor && this.openMenuStack.length === 0) {
                 window.cubescript('showcursor 0');
             }
-            if (menu.onclear) {
-                menu.onclear();
+            if (menu.ondisappear && dispatch) {
+                menu.ondisappear();
             }
             menu.remove();
             delete this.menus[id];

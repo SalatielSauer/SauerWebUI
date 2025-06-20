@@ -31,7 +31,7 @@ class MapAssetsMenu {
                 }
 
                 // now check version using cubescript variable
-                window.cubescript(`result $_mapassets_version_${a.assetname}`, (ver) => {
+                window.cubescript(`nodebug [ result $_mapassets_version_${a.assetname} ]`, (ver) => {
                     let installedVersion = parseInt(ver, 10) || 0;
                     let targetVersion = parseInt(a.assetversion, 10) || 0;
                     res({
@@ -55,9 +55,12 @@ class MapAssetsMenu {
         if (this.body) this.body.remove();
         this.completedCount = this.assets.filter(a => a.installed).length;
         this.body = this._render();
-        this.menuApi.createMenu(this.id, this.body, '52%', '52%', 'Map Assets', { allowExit: true, clearOnEscape: true, allowDrag: false });
+        this.menuApi.createMenu(this.id, this.body, '52%', '52%', 'Map Assets', { allowExit: true, allowDrag: false });
         this.menuApi.showMenu(this.id);
         window.cubescript('showcursor 1');
+        this.menuApi.ondisappear = () => {
+           
+        }
     }
 
     // main download (or refresh) per row
@@ -400,14 +403,17 @@ function onFindFile(path, cb) {
     window.cubescript(`findfile ${path}`, cb);
 }
 
-function checkMapAssets() {
+function checkMapAssets(onError = () => {}) {
     window.cubescript('result $mapassets', (json) => {
-        if (!json) return;
+        if (!json) {
+            onError('No map assets found.');
+            return;
+        }
         json = json.trim();
         if (!json) return;
         if (!json.startsWith('[')) json = `[${json}]`;
         let assets;
-        try { assets = JSON.parse(json); } catch (e) { return; }
+        try { assets = JSON.parse(json); } catch (e) { onError(e); return; }
         if (!Array.isArray(assets)) assets = [assets];
 
         // use the class, passing in the handler functions
