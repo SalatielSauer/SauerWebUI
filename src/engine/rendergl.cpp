@@ -2239,6 +2239,10 @@ void gl_drawhud()
     int w = screenw, h = screenh;
     if(forceaspect) w = int(ceil(h*forceaspect));
 
+    // SauerWUI - cef rendering
+    hudmatrix.ortho(0, w, h, 0, -1, 1);
+    flushhudmatrix();
+
     glEnable(GL_BLEND);
     drawcrosshair(w, h);
     glDisable(GL_BLEND);
@@ -2481,6 +2485,14 @@ void cleanupgl()
     cleanupscreenquad();
 
     gle::cleanup();
+
+    // SauerWUI - clear the CEF texture when the GL context resets
+    if (cefTexture)
+    {
+        glDeleteTextures(1, &cefTexture);
+        cefTexture = 0;
+        cef_pixel_dirty = true;
+    }
 }
 
 
