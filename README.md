@@ -18,6 +18,8 @@ The installation is meant to go alongside the vanilla client, that's why essenti
 
 When running the installer, select the folder where your Sauerbraten is (make sure you are not accidentally creating a directory inside it).
 
+If you are using ZIP, just extract it to your Sauerbraten installation folder, no files will be overwritten.
+
 ## Building
 If you want to build, there is a Visual Studio 2022 project file in `src/vs/`.
 
