@@ -192,6 +192,8 @@ void clearoverrides()
     enumerate(idents, ident, i, clearoverride(i));
 }
 
+static bool safedo_active = false; // SauerWUI - safe 'do'
+
 static bool initedidents = false;
 static vector<ident> *identinits = NULL;
 
@@ -663,6 +665,12 @@ int clampvar(ident *id, int val, int minval, int maxval)
 
 void setvarchecked(ident *id, int val)
 {
+    // SauerWUI - safe 'do'
+    if (safedo_active && id->type != ID_SVAR)
+    {
+        conoutf(CON_ERROR, "safedo: variable %s not permitted", id->name);
+        return;
+    }
     if(id->flags&IDF_READONLY) debugcode("variable %s is read-only", id->name);
 #ifndef STANDALONE
     else if(!(id->flags&IDF_OVERRIDE) || identflags&IDF_OVERRIDDEN || game::allowedittoggle())
@@ -702,6 +710,12 @@ float clampfvar(ident *id, float val, float minval, float maxval)
 
 void setfvarchecked(ident *id, float val)
 {
+    // SauerWUI - safe 'do'
+    if (safedo_active && id->type != ID_SVAR)
+    {
+        conoutf(CON_ERROR, "safedo: variable %s not permitted", id->name);
+        return;
+    }
     if(id->flags&IDF_READONLY) debugcode("variable %s is read-only", id->name);
 #ifndef STANDALONE
     else if(!(id->flags&IDF_OVERRIDE) || identflags&IDF_OVERRIDDEN || game::allowedittoggle())
@@ -982,6 +996,38 @@ static inline char *cutword(const char *&p, int &len)
     len = p-word;
     if(!len) return NULL;
     return newstring(word, len);
+}
+
+
+// SauerWUI - safe 'do'
+static const char* safewhitelist[] =
+{
+    "texture", "mmodel", "addzip", "removezip",
+    "shader", "setshader", "defuniformparam", "findfile",
+    "texturereset", "mapmodelreset", "maptitle", "echo",
+    "concat", "concatword", "getmillis",
+    NULL
+};
+
+static bool issafeword(const char* name)
+{
+    for (const char** w = safewhitelist; *w; ++w)
+        if (!strcasecmp(name, *w)) return true;
+    ident* id = idents.access(name);
+    return id && id->type == ID_SVAR;
+}
+
+static bool issafecommand(const char* cmd)
+{
+    const char* p = cmd;
+    skipcomments(p);
+    int len = 0;
+    char* word = cutword(p, len);
+    if (!word) return false;
+    string name;
+    copystring(name, word);
+    delete[] word;
+    return issafeword(name);
 }
 
 static inline void compilestr(vector<uint> &code, const char *word, int len, bool macro = false)
@@ -1753,6 +1799,12 @@ static const uint *skipcode(const uint *code, tagval &result)
 
 static inline void callcommand(ident *id, tagval *args, int numargs, bool lookup = false)
 {
+    // SauerWUI - safe 'do'
+    if (safedo_active && !issafeword(id->name))
+    {
+        conoutf(CON_ERROR, "safedo: command %s not permitted", id->name);
+        return;
+    }
     int i = -1, fakeargs = 0;
     bool rep = false;
     for(const char *fmt = id->args; *fmt; fmt++) switch(*fmt)
@@ -2060,6 +2112,12 @@ static const uint *runcode(const uint *code, tagval &result)
 #ifndef STANDALONE
             callcom:
 #endif
+                // SauerWUI - safe 'do'
+                if (safedo_active && !issafeword(id->name))
+                {
+                    conoutf(CON_ERROR, "safedo: command %s not permitted", id->name);
+                    goto forceresult;
+                }
                 forcenull(result);
                 CALLCOM(numargs) 
             forceresult:
@@ -2075,11 +2133,23 @@ static const uint *runcode(const uint *code, tagval &result)
 #endif
             case CODE_COMV|RET_NULL: case CODE_COMV|RET_STR: case CODE_COMV|RET_FLOAT: case CODE_COMV|RET_INT:
                 id = identmap[op>>8];
+                // SauerWUI - safe 'do'
+                if (safedo_active && !issafeword(id->name))
+                {
+                    conoutf(CON_ERROR, "safedo: command %s not permitted", id->name);
+                    goto forceresult;
+                }
                 forcenull(result);
                 ((comfunv)id->fun)(args, numargs);
                 goto forceresult; 
             case CODE_COMC|RET_NULL: case CODE_COMC|RET_STR: case CODE_COMC|RET_FLOAT: case CODE_COMC|RET_INT:
                 id = identmap[op>>8];
+                // SauerWUI - safe 'do'
+                if (safedo_active && !issafeword(id->name))
+                {
+                    conoutf(CON_ERROR, "safedo: command %s not permitted", id->name);
+                    goto forceresult;
+                }
                 forcenull(result);
                 {
                     vector<char> buf;
@@ -2176,7 +2246,14 @@ static const uint *runcode(const uint *code, tagval &result)
                     debugcode("unknown command: %s", args[0].s);
                     forcenull(result);
                     goto forceresult;
-                } 
+                }
+                // SauerWUI - safe 'do'
+                if (safedo_active && id->type == ID_COMMAND && !issafeword(id->name))
+                {
+                    conoutf(CON_ERROR, "safedo: command %s not permitted", id->name);
+                    forcenull(result);
+                    goto forceresult;
+                }
                 forcenull(result);
                 switch(id->type)
                 {
@@ -2602,6 +2679,14 @@ void floatret(float v)
 #define ICOMMANDNAME(name) _stdcmd
 
 ICOMMAND(do, "e", (uint *body), executeret(body, *commandret));
+// SauerWUI - safe 'do'
+ICOMMAND(safedo, "e", (uint* body),
+    {
+        bool old = safedo_active;
+        safedo_active = true;
+        executeret(body, *commandret);
+        safedo_active = old;
+    });
 ICOMMAND(if, "tee", (tagval *cond, uint *t, uint *f), executeret(getbool(*cond) ? t : f, *commandret));
 ICOMMAND(?, "ttt", (tagval *cond, tagval *t, tagval *f), result(*(getbool(*cond) ? t : f)));
 
