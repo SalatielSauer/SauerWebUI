@@ -1111,9 +1111,9 @@ namespace game
     {
         switch(index)
         {
-            case 2: return "packages/crosshairs/default_hit.png";
-            case 1: return "packages/crosshairs/default_teammate.png";
-            default: return "packages/crosshairs/default.png";
+            case 2: return "data/hit.png";
+            case 1: return "data/teammate.png";
+            default: return "data/crosshair.png";
         }
     }
 
@@ -1301,8 +1301,8 @@ namespace game
     void writegamedata(vector<char> &extras) {}
     void readgamedata(vector<char> &extras) {}
 
-    const char *savedconfig() { return "config.cfg"; }
-    const char *restoreconfig() { return "restore.cfg"; }
+    const char *savedconfig() { return "config_swui.cfg"; }
+    const char *restoreconfig() { return "restore_swui.cfg"; }
     const char *defaultconfig() { return "data/defaults.cfg"; }
     const char *autoexec() { return "autoexec.cfg"; }
     const char *savedservers() { return "servers.cfg"; }
