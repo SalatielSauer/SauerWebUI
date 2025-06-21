@@ -104,8 +104,10 @@ class WUI {
 
         if (title) {
             const titleBar = document.createElement('div');
+            const titleDiv = document.createElement('div');
             titleBar.className = 'wui-menu-title';
-            titleBar.innerText = title;
+            titleDiv.innerText = title;
+            titleBar.appendChild(titleDiv);
             menu.prepend(titleBar);
         }
 
