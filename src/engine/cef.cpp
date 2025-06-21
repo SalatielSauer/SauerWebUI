@@ -64,6 +64,21 @@ std::string GetExeDir() {
 
 static std::string download_subdir = "";
 
+static bool pathStartsWith(const std::filesystem::path& p, const std::filesystem::path& base)
+{
+    auto canonicalP = std::filesystem::weakly_canonical(p);
+    auto canonicalBase = std::filesystem::weakly_canonical(base);
+
+    auto itBase = canonicalBase.begin();
+    auto itPath = canonicalP.begin();
+    for (; itBase != canonicalBase.end(); ++itBase, ++itPath)
+    {
+        if (itPath == canonicalP.end() || *itBase != *itPath)
+            return false;
+    }
+    return true;
+}
+
 struct DownloadCallbackInfo {
     CefRefPtr<CefMessageRouterBrowserSide::Callback> callback;
     std::string path;
@@ -72,17 +87,35 @@ struct DownloadCallbackInfo {
 static std::unordered_map<uint32_t, DownloadCallbackInfo> g_download_callbacks;
 static std::unordered_map<std::string, CefRefPtr<CefMessageRouterBrowserSide::Callback>> g_pending_downloads;
 
-std::string getDownloadPath(const std::string& filename) {
+/*std::string getDownloadPath(const std::string& filename) {
     std::filesystem::path exeDir = GetExeDir();
-    std::filesystem::path homePath = exeDir / ".." / "HOME"; // todo: we should not hardcode the home folder
+    std::filesystem::path homePath = exeDir / ".." / "HOME";
     if (!download_subdir.empty()) {
         homePath /= download_subdir;
         std::filesystem::create_directories(homePath);
     }
     homePath /= filename;
     return std::filesystem::absolute(homePath).string();
-}
+}*/
 
+std::string getDownloadPath(const std::string& filename) {
+    std::filesystem::path exeDir = GetExeDir();
+    std::filesystem::path projectDir = std::filesystem::weakly_canonical(exeDir / "..");
+    std::filesystem::path homePath = projectDir / "HOME"; // todo: we should not hardcode the home folder
+    std::filesystem::path targetPath = homePath;
+    if (!download_subdir.empty()) {
+        targetPath /= download_subdir;
+    }
+    targetPath /= filename;
+
+    std::filesystem::path canonicalTarget = std::filesystem::weakly_canonical(targetPath);
+
+    if (!pathStartsWith(canonicalTarget, projectDir)) {
+        canonicalTarget = std::filesystem::weakly_canonical(homePath / filename);
+    }
+    std::filesystem::create_directories(canonicalTarget.parent_path());
+    return canonicalTarget.string();
+}
 
 class DownloadHandler : public CefDownloadHandler {
 public:
