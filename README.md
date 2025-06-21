@@ -1,5 +1,7 @@
 # Sauerbraten + JavaScript = Wonderfulness
 
+![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_2.png)
+
 ## What is this?
 **SauerWebUI** is a mod for [Sauerbraten](http://sauerbraten.org/) that brings web technologies to the [Cube Engine](http://cubeengine.com/), allowing users to create interfaces entirely in HTML, CSS, and JavaScript, and to use any library available for those environments.
 
@@ -145,6 +147,8 @@ If you have a better idea for an interface, or improvements for the current one,
 
 There are some experimental files in the `data/wui` folder, some of which don’t lead to anything yet. Play around with them and see if you can get anything useful :)
 
+![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_3.png)
+*an experimental server browser packed with workarounds*
 
 ## Misc
 - ### `guiimagestring <base64 string> [command] <size> <overlay 0/1>`
@@ -190,6 +194,8 @@ There are some experimental files in the `data/wui` folder, some of which don’
 	]
 	```
 	As soon as the map loads (`mapstart`), the player will be prompted with a menu allowing them to download each asset, which will be added to the `home/assets/<asset name>` folder. Assets must have a unique name. You can suggest asset updates by bumping the `assetversion`.
+
+	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_1.png)
 
 - ### `setmapvar <var> <value>`
 	Create custom map variables that are stored along with the map file.
