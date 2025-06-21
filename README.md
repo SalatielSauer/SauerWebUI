@@ -12,9 +12,9 @@ Also, for now, there are some miscellaneous experiments that you will see below.
 ## Installation
 There is currently a pre-compiled binary available for Windows x64 only (tested with Windows 10 22H2):
 
-[Download SauerWebUI (21-06-2025) ZIP](https://github.com/SalatielSauer/SauerWebUI/releases/download/0.01/sauerwebui_jsquare_21-06-2025.zip)
+[Download SauerWebUI (21-06-2025) ZIP](https://github.com/SalatielSauer/SauerWebUI/releases/download/v0.1-test/sauerwebui_jsquare_21-06-2025.zip)
 
-[Download SauerWebUI (21-06-2025) installer](https://github.com/SalatielSauer/SauerWebUI/releases/download/0.01/sauerwebui_jsquare_21-06-2025_installer.exe)
+[Download SauerWebUI (21-06-2025) installer](https://github.com/SalatielSauer/SauerWebUI/releases/download/v0.1-test/sauerwebui_jsquare_21-06-2025_installer.exe)
 
 The installation is meant to go alongside the vanilla client, that's why essential folders like packages are not included.
 
