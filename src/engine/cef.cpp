@@ -766,14 +766,17 @@ void cef_initialize(void* window_handle) {
     settings.multi_threaded_message_loop = false;
     settings.windowless_rendering_enabled = true;
 
-    // allow multiple clients by using a unique cache directory per process
+    // use a persistent cache directory so CEF data like cookies and
+    // localStorage are kept between client sessions. Multiple processes
+    // cannot share the same root_cache_path so we support a CEF_PROFILE
+    // environment variable that defines the subdirectory name. Running
+    // multiple clients with different CEF_PROFILE values allows them to
+    // coexist while still persisting data for each profile.
     std::filesystem::path exeDir = GetExeDir();
-#if defined(_WIN32)
-    DWORD pid = GetCurrentProcessId();
-#else
-    pid_t pid = getpid();
-#endif
-    std::filesystem::path cachePath = exeDir / "cef_cache" / std::to_string(pid);
+    const char* profileEnv = std::getenv("CEF_PROFILE");
+    std::string profile = profileEnv && *profileEnv ? profileEnv : "default";
+    std::filesystem::path cachePath = exeDir / "cef_cache" / profile;
+
     std::filesystem::create_directories(cachePath);
     CefString(&settings.root_cache_path) = cachePath.string();
     CefString(&settings.cache_path) = cachePath.string();
