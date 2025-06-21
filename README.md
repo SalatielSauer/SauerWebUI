@@ -10,15 +10,15 @@ Also, for now, there are some miscellaneous experiments that you will see below.
 ## Installation
 There is currently a pre-compiled binary available for Windows x64 only (tested with Windows 10 22H2):
 
-[Download SauerWebUI (20-06-2025) ZIP](https://github.com/SalatielSauer/SauerWebUI/releases/download/0.01/sauerwebui_jsquare_20-06-2025.zip)
+[Download SauerWebUI (21-06-2025) ZIP](https://github.com/SalatielSauer/SauerWebUI/releases/download/0.01/sauerwebui_jsquare_21-06-2025.zip)
 
-[Download SauerWebUI (20-06-2025) installer](https://github.com/SalatielSauer/SauerWebUI/releases/download/0.01/sauerwebui_jsquare_20-06-2025_installer.exe)
+[Download SauerWebUI (21-06-2025) installer](https://github.com/SalatielSauer/SauerWebUI/releases/download/0.01/sauerwebui_jsquare_21-06-2025_installer.exe)
 
 The installation is meant to go alongside the vanilla client, that's why essential folders like packages are not included.
 
 When running the installer, select the folder where your Sauerbraten is (make sure you are not accidentally creating a directory inside it).
 
-If you are using ZIP, just extract it to your Sauerbraten installation folder, no files will be overwritten.
+If you are using the ZIP, just extract it to your Sauerbraten installation folder, no files will be overwritten.
 
 ## Building
 If you want to build, there is a Visual Studio 2022 project file in `src/vs/`.
