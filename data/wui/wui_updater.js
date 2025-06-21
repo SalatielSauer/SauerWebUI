@@ -44,7 +44,9 @@ class GithubUpdater {
         if (lastSha === latestSha) {
             return { changed: [], latestSha, lastSha, latestCommit };
         }
-        const files = await this.getChangedFiles(lastSha);
+        let files = await this.getChangedFiles(lastSha);
+
+        files = files.filter(f => !f.filename.startsWith('src/'));
 
         return { changed: files, latestSha, lastSha, latestCommit };
     }
