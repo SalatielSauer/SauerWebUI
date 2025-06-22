@@ -2,6 +2,10 @@
 
 #include "engine.h"
 
+// SauerWUI - import obj as geometry
+extern selinfo sel;
+extern bool havesel;
+
 void validmapname(char *dst, const char *src, const char *prefix = NULL, const char *alt = "untitled", size_t maxlen = 100)
 {
     if(prefix) while(*prefix) *dst++ = *prefix++;
@@ -1395,7 +1399,122 @@ void writeobj(char *name)
     delete f;
 }  
     
-COMMAND(writeobj, "s"); 
+COMMAND(writeobj, "s");
+
+// SauerWUI - import obj as geometry
+void importobj(char* name, float* mscale)
+{
+    if (!editmode) { conoutf(CON_ERROR, "importobj only allowed in edit mode"); return; }
+    defformatstring(fname, "%s.obj", name);
+    stream* f = openfile(path(fname), "r");
+    if (!f) { conoutf(CON_ERROR, "could not read obj %s", fname); return; }
+    vector<vec> verts;
+    vector<ivec> faces;
+    char buf[512];
+    float scale = *mscale > 0 ? *mscale : 1.0f;
+    vec bbmin(1e16f, 1e16f, 1e16f), bbmax(-1e16f, -1e16f, -1e16f);
+    while (f->getline(buf, sizeof(buf)))
+    {
+        char* s = buf;
+        while (isspace(*s)) s++;
+        if (*s == 'v' && isspace(s[1]))
+        {
+            s++;
+            vec v(0, 0, 0);
+            loopi(3)
+            {
+                while (isspace(*s)) s++;
+                if (!*s) break;
+                v[i] = strtod(s, &s);
+            }
+            v = vec(v.z, -v.x, v.y).mul(scale);
+            loopi(3)
+            {
+                bbmin[i] = min(bbmin[i], v[i]);
+                bbmax[i] = max(bbmax[i], v[i]);
+            }
+            verts.add(v);
+        }
+        else if (*s == 'f' && isspace(s[1]))
+        {
+            s++;
+            vector<int> idx;
+            while (*s)
+            {
+                while (isspace(*s)) s++;
+                if (!*s) break;
+                int vindex = strtol(s, &s, 10);
+                if (vindex < 0) vindex = verts.length() + vindex;
+                else vindex--;
+                while (*s && !isspace(*s)) s++;
+                idx.add(vindex);
+            }
+            if (idx.length() >= 3)
+            {
+                for (int i = 1; i + 1 < idx.length(); ++i)
+                    faces.add(ivec(idx[0], idx[i], idx[i + 1]));
+            }
+        }
+    }
+    delete f;
+    if (verts.empty() || faces.empty()) { conoutf(CON_ERROR, "importobj: incomplete data in %s", fname); return; }
+
+    vec offset;
+    if (havesel) offset = vec(sel.o).sub(bbmin);
+    else offset = vec(worldsize / 2 - (bbmax.x + bbmin.x) / 2,
+        worldsize / 2 - (bbmax.y + bbmin.y) / 2,
+        -bbmin.z);
+    int tex = texmru.empty() ? DEFAULT_GEOM : texmru[0];
+
+    auto setcubeat = [&](const ivec& p)
+        {
+            if (!insideworld(p)) return;
+            ivec ro; int rsize;
+            cube& c = lookupcube(p, 1, ro, rsize);
+            solidfaces(c);
+            loopk(6) c.texture[k] = tex;
+        };
+
+    auto pointintri = [](const vec& p, const vec& a, const vec& b, const vec& c)->bool
+        {
+            vec ab = vec(b).sub(a), ac = vec(c).sub(a), ap = vec(p).sub(a);
+            vec n; n.cross(ab, ac);
+            float area = n.magnitude();
+            if (area < 1e-6f) return false;
+            n.div(area);
+            if (fabs(n.dot(ap)) > 0.5f) return false;
+            float s = n.dot(vec().cross(ab, ap));
+            float t = n.dot(vec().cross(vec(c).sub(b), vec(p).sub(b)));
+            float u = n.dot(vec().cross(vec(a).sub(c), vec(p).sub(c)));
+            if ((s >= -0.5f && t >= -0.5f && u >= -0.5f) ||
+                (s <= 0.5f && t <= 0.5f && u <= 0.5f))
+                return true;
+            return false;
+        };
+
+    loopv(faces)
+    {
+        vec a = verts[faces[i].x], b = verts[faces[i].y], c = verts[faces[i].z];
+        a.add(offset); b.add(offset); c.add(offset);
+        vec tmin(min(a.x, min(b.x, c.x)),
+            min(a.y, min(b.y, c.y)),
+            min(a.z, min(b.z, c.z)));
+        vec tmax(max(a.x, max(b.x, c.x)),
+            max(a.y, max(b.y, c.y)),
+            max(a.z, max(b.z, c.z)));
+        for (int x = int(floor(tmin.x)); x <= int(floor(tmax.x)); ++x)
+            for (int y = int(floor(tmin.y)); y <= int(floor(tmax.y)); ++y)
+                for (int z = int(floor(tmin.z)); z <= int(floor(tmax.z)); ++z)
+                {
+                    vec p(float(x) + 0.5f, float(y) + 0.5f, float(z) + 0.5f);
+                    if (pointintri(p, a, b, c)) setcubeat(ivec(x, y, z));
+                }
+    }
+    mpremip(true);
+    allchanged();
+}
+
+COMMAND(importobj, "sf");
 
 #endif
 

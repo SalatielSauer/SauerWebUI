@@ -203,6 +203,9 @@ There are some experimental files in the `data/wui` folder, some of which don’
 - ### `getmapvar <var>`
 	Retrieve the value of a map variable (such as those created with `setmapvar`).
 
+- ### `importobj <file> <size>`
+	Imports an .obj model file as cubes in a voxelized style and places it in the current selection, the larger the size, the more detailed the geometry will be.
+
 <hr>
 
 
