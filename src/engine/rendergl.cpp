@@ -2243,9 +2243,12 @@ void gl_drawhud()
     hudmatrix.ortho(0, w, h, 0, -1, 1);
     flushhudmatrix();
 
-    glEnable(GL_BLEND);
-    drawcrosshair(w, h);
-    glDisable(GL_BLEND);
+    if (!mainmenu)
+    {
+        glEnable(GL_BLEND);
+        drawcrosshair(w, h);
+        glDisable(GL_BLEND);
+    }
 
     // SauerWUI - cef rendering
     if (cef_pixel_buffer && cef_pixel_dirty) {
