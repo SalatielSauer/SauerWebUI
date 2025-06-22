@@ -295,16 +295,32 @@ class GithubUpdater {
             notesDiv.innerHTML = this.markdownToHtml(notesText);
             body.appendChild(notesDiv);
         }
-        // update button
-        const btn = document.createElement('button');
-        btn.textContent = '🌐Update All';
-        btn.style.marginTop = '10px';
-        btn.onclick = async () => {
-            btn.disabled = true;
+        // "Update All" button
+        const btnUpdate = document.createElement('button');
+        btnUpdate.textContent = '🌐Update All';
+        btnUpdate.style.marginTop = '10px';
+        btnUpdate.onclick = async () => {
+            btnUpdate.disabled = true;
+            btnIgnore.disabled = true; // disable both buttons during update
             await this.updateAll(result.changed, result.latestSha, listItems);
             scrollDiv.innerHTML = 'All files are up to date ✔️<br>⚠️You may have to restart the client to apply the changes.';
         };
-        body.appendChild(btn);
+
+        // "Skip Patch" button
+        const btnIgnore = document.createElement('button');
+        btnIgnore.textContent = '🚫 Skip Patch';
+        btnIgnore.onclick = async () => {
+            if (confirm("Are you sure? the changes in this patch will not be applied.")) {
+                localStorage.setItem(this.storageKey, result.latestSha);
+                await this.showMenu();
+            }
+        };
+
+        const btnContainer = document.createElement('div');
+        btnContainer.appendChild(btnUpdate);
+        btnContainer.appendChild(btnIgnore);
+
+        body.appendChild(btnContainer);
     }
 
 }
