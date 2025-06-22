@@ -10,7 +10,7 @@ class GithubUpdater {
         this.rawBase = `https://raw.githubusercontent.com/${this.repoPath}`;
         this.storageKey = `lastsha_${this.repoPath}_${this.config.branch}`;
         this.lastAutoCheckKey = `lastautocheck_${this.repoPath}_${this.config.branch}`;
-
+        this.patchNotesPath = 'PATCHNOTES.md';
     }
 
     async getLatestCommit() {
@@ -70,6 +70,38 @@ class GithubUpdater {
             window.cubescript(`cleargui; showcursor 1`);
             this.showMenu();
         }
+    }
+
+    async fetchPatchNotes() {
+        try {
+            const url = `${this.rawBase}/${this.config.branch}/${this.patchNotesPath}`;
+            const resp = await fetch(url);
+            if (resp.ok) return await resp.text();
+        } catch (e) {
+            console.error('[GithubUpdater] failed to fetch patch notes', e);
+        }
+        return null;
+    }
+
+    markdownToHtml(md) {
+        const lines = md.split('\n');
+        let html = '';
+        let inList = false;
+        for (const l of lines) {
+            let line = l.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+            if (/^- /.test(line)) {
+                if (!inList) { html += '<ul>'; inList = true; }
+                html += `<li>${line.slice(2).trim()}</li>`;
+            } else {
+                if (inList) { html += '</ul>'; inList = false; }
+                if (line.startsWith('### ')) html += `<h3>${line.slice(4)}</h3>`;
+                else if (line.startsWith('## ')) html += `<h2>${line.slice(3)}</h2>`;
+                else if (line.startsWith('# ')) html += `<h1>${line.slice(2)}</h1>`;
+                else if (line.trim() !== '') html += `<p>${line}</p>`;
+            }
+        }
+        if (inList) html += '</ul>';
+        return html;
     }
 
     async downloadFile(file, li) {
@@ -145,6 +177,7 @@ class GithubUpdater {
         const result = await this.check();
         const { author, date } = result.latestCommit || {};
         const formattedDate = date ? new Date(date).toLocaleString() : '';
+        const notesText = await this.fetchPatchNotes();
         //console.log('Update check result:', result);
         body.innerHTML = '';
         if (result.changed.length === 0) {
@@ -168,10 +201,25 @@ class GithubUpdater {
 
             body.appendChild(infoDiv);
             body.appendChild(checkBtn);
+            if (notesText) {
+                const notesDiv = document.createElement('div');
+                notesDiv.style.fontSize = '8px';
+                notesDiv.style.maxHeight = '150px';
+                notesDiv.style.overflowY = 'auto';
+                notesDiv.style.overflowX = 'hidden';
+                notesDiv.style.border = '1px dashed rgb(221, 221, 221)';
+                notesDiv.style.padding = '4px';
+                notesDiv.style.borderRadius = '4px';
+                notesDiv.style.background = 'rgb(13 28 41)';
+                notesDiv.style.marginTop = '8px';
+                notesDiv.style.textAlign = 'left';
+                notesDiv.style.boxShadow = '0 0 3px black';
+                notesDiv.innerHTML = this.markdownToHtml(notesText);
+                body.appendChild(notesDiv);
+            }
             localStorage.setItem(this.storageKey, result.latestSha);
             return;
         }
-
 
         // count file status
         let added = 0, modified = 0, removed = 0;
@@ -231,7 +279,22 @@ class GithubUpdater {
         });
         scrollDiv.appendChild(list);
         body.appendChild(scrollDiv);
-
+        if (notesText) {
+            const notesDiv = document.createElement('div');
+            notesDiv.style.fontSize = '8px';
+            notesDiv.style.maxHeight = '150px';
+            notesDiv.style.overflowY = 'auto';
+            notesDiv.style.overflowX = 'hidden';
+            notesDiv.style.border = '1px dashed rgb(221, 221, 221)';
+            notesDiv.style.padding = '4px';
+            notesDiv.style.borderRadius = '4px';
+            notesDiv.style.background = 'rgb(13 28 41)';
+            notesDiv.style.marginTop = '8px';
+            notesDiv.style.textAlign = 'left';
+            notesDiv.style.boxShadow = '0 0 3px black';
+            notesDiv.innerHTML = this.markdownToHtml(notesText);
+            body.appendChild(notesDiv);
+        }
         // update button
         const btn = document.createElement('button');
         btn.textContent = '🌐Update All';
