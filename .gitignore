@@ -8,7 +8,6 @@ data/*
 
 *.obj
 *.exe
-*.dll
 *.lib
 *.pdb
 
