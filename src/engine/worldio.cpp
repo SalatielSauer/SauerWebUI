@@ -1264,7 +1264,25 @@ bool load_world(const char *mname, const char *cname)        // still supports a
 
     identflags |= IDF_OVERRIDDEN;
     execfile("data/default_map_settings.cfg", false);
-    execfile(cfgname, false);
+
+    // SauerWUI - map cfg as mapvar
+    //execfile(cfgname, false);
+    bool havemapcfg = execfile(cfgname, false);
+    if (!havemapcfg)
+    {
+        const char* cfg = getmapvar("mapcfg");
+        if (cfg && *cfg)
+        {
+            ident* id = getident("safedo");
+            if (id && id->type == ID_COMMAND)
+            {
+                tagval arg; arg.setstr(newstring(cfg));
+                //execute(id, &arg, 1);
+                dosafedo(cfg);
+            }
+        }
+    }
+
     identflags &= ~IDF_OVERRIDDEN;
    
     extern void fixlightmapnormals();

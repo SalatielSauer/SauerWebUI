@@ -197,6 +197,23 @@ There are some experimental files in the `data/wui` folder, some of which don’
 
 	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_1.png)
 
+- ### `mapcfg [command]`
+	Allows sharing map cfgs with other players via sendmap; the commands will be executed automatically during getmap.
+	
+	If the current `mapcfg` map variable is empty and you have a local map.cfg file, the contents of your local map.cfg will automatically be added to the `mapcfg` map variable during sendmap.
+
+ 	Only a limited list of commands is available, and you can see them below.
+
+- ### `safedo [command]`
+	Similar to `do`, but executes CubeScript with a limited list of allowed commands.
+	The available commands are:
+	```
+    "texture", "mmodel", "addzip", "removezip",
+    "shader", "setshader", "defuniformparam", "findfile",
+    "texturereset", "mapmodelreset", "maptitle", "echo",
+    "concat", "concatword", "getmillis"
+	```
+
 - ### `setmapvar <var> <value>`
 	Create custom map variables that are stored along with the map file.
 

@@ -2725,14 +2725,17 @@ void floatret(float v)
 #define ICOMMANDNAME(name) _stdcmd
 
 ICOMMAND(do, "e", (uint *body), executeret(body, *commandret));
+
 // SauerWUI - safe 'do'
-ICOMMAND(safedo, "s", (char* body),
-    {
-        bool old = safedo_active;
-        safedo_active = true;
-        execute(body);
-        safedo_active = old;
-    });
+void dosafedo(const char* body)
+{
+    bool old = safedo_active;
+    safedo_active = true;
+    execute(body);
+    safedo_active = old;
+}
+ICOMMAND(safedo, "s", (const char* body), dosafedo(body));
+
 ICOMMAND(if, "tee", (tagval *cond, uint *t, uint *f), executeret(getbool(*cond) ? t : f, *commandret));
 ICOMMAND(?, "ttt", (tagval *cond, tagval *t, tagval *f), result(*(getbool(*cond) ? t : f)));
 

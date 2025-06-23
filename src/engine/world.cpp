@@ -8,6 +8,7 @@ VARNR(mapsize, worldsize, 1, 0, 0);
 SVARR(maptitle, "Untitled Map by Unknown");
 
 SVARR(mapassets, ""); // SauerWUI - asset downloader
+SVARR(mapcfg, ""); // SauerWUI - inline map configuration
 
 VAR(octaentsize, 0, 64, 1024);
 VAR(entselradius, 0, 2, 10);

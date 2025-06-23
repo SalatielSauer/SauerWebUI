@@ -126,6 +126,9 @@ extern char *svariable(const char *name, const char *cur, char **storage, identf
 extern void setvar(const char *name, int i, bool dofunc = true, bool doclamp = true);
 extern void setfvar(const char *name, float f, bool dofunc = true, bool doclamp = true);
 extern void setsvar(const char *name, const char *str, bool dofunc = true);
+extern void setmapvar(const char* name, const char* val); // SauerWUI
+extern const char* getmapvar(const char* name);  // SauerWUI
+extern void dosafedo(const char* body); // SauerWUI
 extern void setvarchecked(ident *id, int val);
 extern void setfvarchecked(ident *id, float val);
 extern void setsvarchecked(ident *id, const char *val);

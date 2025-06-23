@@ -2131,8 +2131,38 @@ namespace game
     {
         if(!m_edit || (player1->state==CS_SPECTATOR && remote && !player1->privilege)) { conoutf(CON_ERROR, "\"sendmap\" only works in coop edit mode"); return; }
         conoutf("sending map...");
+
+        // SauerWUI - map cfg as mapvar
+        string pakname, mapname, mcfgname, cfgfile;
+        getmapfilenames(game::getclientmap(), NULL, pakname, mapname, mcfgname);
+        formatstring(cfgfile, "packages/%s/%s.cfg", pakname, mcfgname);
+        path(cfgfile);
+        char* cfg = loadfile(cfgfile, NULL);
+        //char* oldcfg = NULL;
+        if (cfg)
+        {
+            if (strcmp(getmapvar("mapcfg"), ""))
+            {
+                conoutf(CON_ECHO, "your local %s.cfg can override \"mapcfg\" map var only if it is currently empty", mapname);
+                return;
+            }
+
+            //oldcfg = newstring(getmapvar("mapcfg"));
+            setmapvar("mapcfg", cfg);
+            printvar(player1, getident("mapcfg"));
+        }
+
         defformatstring(mname, "sendmap_%d", lastmillis);
         save_world(mname, true);
+
+        // SauerWUI - map cfg as mapvar
+        if (cfg)
+        {
+            //setmapvar("mapcfg", oldcfg);
+            //delete[] oldcfg;
+            delete[] cfg;
+        }
+
         defformatstring(fname, "packages/base/%s.ogz", mname);
         stream *map = openrawfile(path(fname), "rb");
         if(map)
