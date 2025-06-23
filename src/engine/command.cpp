@@ -1274,6 +1274,34 @@ done:
     return true;
 }
 
+// SauerWUI - safe 'do'
+// parse a block without performing @( ) expansions, returning it as a plain string
+static void compilerawblock(vector<uint>& code, const char*& p)
+{
+    const char* line = p + 1;
+    const char* start = ++p;
+    for (int brak = 1; brak;)
+    {
+        p += strcspn(p, "\"[]\0");
+        int c = *p++;
+        switch (c)
+        {
+        case '\0':
+            debugcodeline(line, "missing \"]\"");
+            p--;
+            brak = 0;
+            break;
+        case '"':
+            p = parsestring(p);
+            if (*p == '"') p++;
+            break;
+        case '[': brak++; break;
+        case ']': brak--; break;
+        }
+    }
+    compilestr(code, start, p - 1 - start, true);
+}
+
 static bool compileblocksub(vector<uint> &code, const char *&p)
 {
     char *lookup = NULL;
@@ -1536,7 +1564,25 @@ static void compilestatements(vector<uint> &code, const char *&p, int rettype, i
                     bool rep = false;
                     for(const char *fmt = id->args; *fmt; fmt++) switch(*fmt)
                     {
-                    case 's': 
+                    case 's':
+                        // SauerWUI - safe 'do'
+                        if (!strcasecmp(id->name, "safedo"))
+                        {
+                            if (more)
+                            {
+                                skipcomments(p);
+                                if (*p == '[') compilerawblock(code, p);
+                                else more = compilearg(code, p, VAL_STR);
+                            }
+                            if (!more)
+                            {
+                                if (rep) break;
+                                compilestr(code, NULL, 0, true);
+                                fakeargs++;
+                            }
+                            numargs++;
+                            break;
+                        }
                         if(more) more = compilearg(code, p, VAL_STR);
                         if(!more) 
                         {
@@ -2680,11 +2726,11 @@ void floatret(float v)
 
 ICOMMAND(do, "e", (uint *body), executeret(body, *commandret));
 // SauerWUI - safe 'do'
-ICOMMAND(safedo, "e", (uint* body),
+ICOMMAND(safedo, "s", (char* body),
     {
         bool old = safedo_active;
         safedo_active = true;
-        executeret(body, *commandret);
+        execute(body);
         safedo_active = old;
     });
 ICOMMAND(if, "tee", (tagval *cond, uint *t, uint *f), executeret(getbool(*cond) ? t : f, *commandret));
