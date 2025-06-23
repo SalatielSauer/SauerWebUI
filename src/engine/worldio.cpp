@@ -1273,13 +1273,8 @@ bool load_world(const char *mname, const char *cname)        // still supports a
         const char* cfg = getmapvar("mapcfg");
         if (cfg && *cfg)
         {
-            ident* id = getident("safedo");
-            if (id && id->type == ID_COMMAND)
-            {
-                tagval arg; arg.setstr(newstring(cfg));
-                //execute(id, &arg, 1);
-                dosafedo(cfg);
-            }
+            tagval arg; arg.setstr(newstring(cfg));
+            dosafedo(cfg);
         }
     }
 
