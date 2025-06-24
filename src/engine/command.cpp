@@ -433,6 +433,14 @@ static inline void setarg(ident &id, tagval &v)
 
 static inline void setalias(ident &id, tagval &v)
 {
+    // SauerWUI - safe 'do'
+    if (safedo_active && id.index >= MAXARGS)
+    {
+        conoutf(CON_ERROR, "safedo: alias %s not permitted", id.name);
+        freearg(v);
+        return;
+    }
+
     if(id.valtype == VAL_STR) delete[] id.val.s;
     id.setval(v);
     cleancode(id);
@@ -441,6 +449,14 @@ static inline void setalias(ident &id, tagval &v)
 
 static void setalias(const char *name, tagval &v)
 {
+    // SauerWUI - safe 'do'
+    if (safedo_active)
+    {
+        conoutf(CON_ERROR, "safedo: alias %s not permitted", name);
+        freearg(v);
+        return;
+    }
+
     ident *id = idents.access(name);
     if(id) 
     {
