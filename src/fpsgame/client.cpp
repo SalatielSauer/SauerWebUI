@@ -2138,31 +2138,22 @@ namespace game
         formatstring(cfgfile, "packages/%s/%s.cfg", pakname, mcfgname);
         path(cfgfile);
         char* cfg = loadfile(cfgfile, NULL);
-        //char* oldcfg = NULL;
         if (cfg)
         {
             if (strcmp(getmapvar("mapcfg"), ""))
             {
                 conoutf(CON_ECHO, "your local %s.cfg can override \"mapcfg\" map var only if it is currently empty", mapname);
-                return;
             }
-
-            //oldcfg = newstring(getmapvar("mapcfg"));
-            setmapvar("mapcfg", cfg);
-            printvar(player1, getident("mapcfg"));
+            else {
+                setmapvar("mapcfg", cfg);
+                printvar(player1, getident("mapcfg"));
+            }
+            delete[] cfg;
         }
 
         defformatstring(mname, "sendmap_%d", lastmillis);
         save_world(mname, true);
-
-        // SauerWUI - map cfg as mapvar
-        if (cfg)
-        {
-            //setmapvar("mapcfg", oldcfg);
-            //delete[] oldcfg;
-            delete[] cfg;
-        }
-
+ 
         defformatstring(fname, "packages/base/%s.ogz", mname);
         stream *map = openrawfile(path(fname), "rb");
         if(map)
