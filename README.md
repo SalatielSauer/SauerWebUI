@@ -208,10 +208,11 @@ There are some experimental files in the `data/wui` folder, some of which don’
 	Similar to `do`, but executes CubeScript with a limited list of allowed commands.
 	The available commands are:
 	```
-    "texture", "mmodel", "addzip", "removezip",
+    "texture", "safemmodel", "addzip", "removezip",
     "shader", "setshader", "defuniformparam", "findfile",
     "texturereset", "mapmodelreset", "maptitle", "echo",
-    "concat", "concatword", "getmillis"
+    "concat", "concatword", "getmillis",
+    "mdl*", "md2*", "md3*", "md5*", "obj*", "smd*", "iqm*"
 	```
 
 - ### `setmapvar <var> <value>`

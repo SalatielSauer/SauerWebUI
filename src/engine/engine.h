@@ -492,6 +492,7 @@ extern void startmap(const char *name);
 struct mapmodelinfo { string name; model *m; };
 
 extern bool modelloaded(const char *name);
+extern bool safemodelcfg; // SauerWUI - safe 'do' (model cfg)
 extern void findanims(const char *pattern, vector<int> &anims);
 extern void loadskin(const char *dir, const char *altdir, Texture *&skin, Texture *&masks);
 extern mapmodelinfo *getmminfo(int i);

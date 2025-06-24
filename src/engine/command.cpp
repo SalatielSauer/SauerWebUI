@@ -998,25 +998,35 @@ static inline char *cutword(const char *&p, int &len)
     return newstring(word, len);
 }
 
-
 // SauerWUI - safe 'do'
 static const char* safewhitelist[] =
 {
-    "texture", "mmodel", "addzip", "removezip",
+    "texture", "safemmodel", "addzip", "removezip",
     "shader", "setshader", "defuniformparam", "findfile",
     "texturereset", "mapmodelreset", "maptitle", "echo",
     "concat", "concatword", "getmillis",
+    "mdl*", "md2*", "md3*", "md5*", "obj*", "smd*", "iqm*",
     NULL
 };
 
+// SauerWUI - safe 'do'
 static bool issafeword(const char* name)
 {
     for (const char** w = safewhitelist; *w; ++w)
-        if (!strcasecmp(name, *w)) return true;
+    {
+        const char *p = *w;
+        size_t len = strlen(p);
+        if(len && p[len-1] == '*')
+        {
+            if(!strncasecmp(name, p, len-1)) return true;
+        }
+        else if(!strcasecmp(name, p)) return true;
+    }
     ident* id = idents.access(name);
     return id && id->type == ID_SVAR;
 }
 
+// SauerWUI - safe 'do'
 static bool issafecommand(const char* cmd)
 {
     const char* p = cmd;
@@ -2582,6 +2592,31 @@ bool execfile(const char *cfgfile, bool msg)
     return true;
 }
 ICOMMAND(exec, "sb", (char *file, int *msg), intret(execfile(file, *msg != 0) ? 1 : 0));
+
+// SauerWUI - safe 'do' (model cfg)
+bool execsafefile(const char *cfgfile, bool msg)
+{
+    string s;
+    copystring(s, cfgfile);
+
+    char *buf = loadfile(path(s), NULL);
+    if(!buf)
+    {
+        if(msg) conoutf(CON_ERROR, "could not read \"%s\"", cfgfile);
+        return false;
+    }
+    bool old = safedo_active;
+    safedo_active = true;
+    const char *oldsourcefile = sourcefile, *oldsourcestr = sourcestr;
+    sourcefile = cfgfile;
+    sourcestr = buf;
+    execute(buf);
+    sourcefile = oldsourcefile;
+    sourcestr = oldsourcestr;
+    safedo_active = old;
+    delete[] buf;
+    return true;
+}
 
 const char *escapestring(const char *s)
 {

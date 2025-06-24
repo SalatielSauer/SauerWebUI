@@ -280,11 +280,15 @@ struct md2 : vertloader<md2>
         if(tex==notexture) conoutf(CON_ERROR, "could not load model skin for %s", name1);
         identflags &= ~IDF_PERSIST;
         defformatstring(name3, "packages/models/%s/md2.cfg", name);
-        if(!execfile(name3, false))
+
+        // SauerWUI - safe 'do' (model cfg)
+        //if(!execfile(name3, false))
+        if(!(safemodelcfg ? execsafefile(name3, false) : execfile(name3, false)))
         {
             formatstring(name3, "packages/models/%s/md2.cfg", pname);
-            execfile(name3, false);
+            if(safemodelcfg) execsafefile(name3, false); else execfile(name3, false);
         }
+
         identflags |= IDF_PERSIST;
         return true;
     }

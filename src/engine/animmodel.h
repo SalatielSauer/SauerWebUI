@@ -1453,7 +1453,11 @@ template<class MDL, class BASE> struct modelloader : BASE
         defformatstring(cfgname, "packages/models/%s/%s.cfg", BASE::name, MDL::formatname());
 
         identflags &= ~IDF_PERSIST;
-        bool success = execfile(cfgname, false);
+
+        // SauerWUI - safe 'do' (model cfg)
+        //bool success = execfile(cfgname, false);
+        bool success = safemodelcfg ? execsafefile(cfgname, false) : execfile(cfgname, false);
+
         identflags |= IDF_PERSIST;
         return success;
     }

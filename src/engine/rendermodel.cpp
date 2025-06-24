@@ -4,6 +4,7 @@ VAR(oqdynent, 0, 1, 1);
 VAR(animationinterpolationtime, 0, 150, 1000);
 
 model *loadingmodel = NULL;
+bool safemodelcfg = false; // SauerWUI - safe 'do' (model cfg)
 
 #include "ragdoll.h"
 #include "animmodel.h"
@@ -332,6 +333,17 @@ void mmodel(char *name)
     mmi.m = NULL;
 }
 
+// SauerWUI - safe 'do' (model cfg)
+void safemmodel(char *name)
+{
+    int idx = mapmodels.length();
+    mmodel(name);
+    bool old = safemodelcfg;
+    safemodelcfg = true;
+    loadmodel(NULL, idx, false);
+    safemodelcfg = old;
+}
+
 void mapmodelcompat(int *rad, int *h, int *tex, char *name, char *shadow)
 {
     mmodel(name);
@@ -347,6 +359,7 @@ mapmodelinfo *getmminfo(int i) { return mapmodels.inrange(i) ? &mapmodels[i] : 0
 const char *mapmodelname(int i) { return mapmodels.inrange(i) ? mapmodels[i].name : NULL; }
 
 COMMAND(mmodel, "s");
+COMMAND(safemmodel, "s"); // SauerWUI - safe 'do' (model cfg)
 COMMANDN(mapmodel, mapmodelcompat, "iiiss");
 COMMAND(mapmodelreset, "i");
 ICOMMAND(mapmodelname, "i", (int *index), { result(mapmodels.inrange(*index) ? mapmodels[*index].name : ""); });
