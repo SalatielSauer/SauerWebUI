@@ -225,7 +225,7 @@ There are some experimental files in the `data/wui` folder, some of which don’
 	Imports an .obj model file as cubes in a voxelized style and places it in the current selection, the larger the size, the more detailed the geometry will be.
 
 - ### `loadmonster <config>`
-	Load a monster definition from a cfg file. The cfg should use the commands below to describe the monster.
+	Load a monster definition from a cfg file. The cfg should use the `monster` commands below to describe the monster.
 
 - ### `clearmonsters`
 	Clear previously loaded monster definitions (and any spawned monsters).
@@ -236,7 +236,7 @@ There are some experimental files in the `data/wui` folder, some of which don’
 	Sets the display name for the monster.
 
 - ### `monstermodel <modelpath>`
-	Model model used when rendering the monster.
+	Model used when rendering the monster.
 
 - ### `monstervwep <modelpath>`
 	Optional weapon model attached for third person view.
