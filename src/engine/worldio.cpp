@@ -1264,6 +1264,7 @@ bool load_world(const char *mname, const char *cname)        // still supports a
 
     identflags |= IDF_OVERRIDDEN;
     execfile("data/default_map_settings.cfg", false);
+    execfile("data/default_sp_monsters.cfg", false); // SauerWUI - custom monsters
 
     // SauerWUI - map cfg as mapvar
     //execfile(cfgname, false);

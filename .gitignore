@@ -4,7 +4,8 @@ packages/
 data/*
 
 !data/wui/
-!data/menus.cfg
+!data/default_sp_monsters.cfg
+!data/monsters
 
 *.obj
 *.exe

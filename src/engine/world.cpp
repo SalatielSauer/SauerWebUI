@@ -1291,6 +1291,7 @@ bool emptymap(int scale, bool force, const char *mname, bool usecfg)    // main 
     {
         identflags |= IDF_OVERRIDDEN;
         execfile("data/default_map_settings.cfg", false);
+        execfile("data/default_sp_monsters.cfg", false); // SauerWUI - custom monsters
         identflags &= ~IDF_OVERRIDDEN;
     }
 

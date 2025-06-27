@@ -224,8 +224,69 @@ There are some experimental files in the `data/wui` folder, some of which don’
 - ### `importobj <file> <size>`
 	Imports an .obj model file as cubes in a voxelized style and places it in the current selection, the larger the size, the more detailed the geometry will be.
 
-<hr>
+- ### `loadmonster <config>`
+	Load a monster definition from a cfg file. The cfg should use the commands below to describe the monster.
 
+- ### `clearmonsters`
+	Clear previously loaded monster definitions (and any spawned monsters).
+<details>
+<summary>Show monster* commands</summary>
+
+- ### `monstername <text>`
+	Sets the display name for the monster.
+
+- ### `monstermodel <modelpath>`
+	Model model used when rendering the monster.
+
+- ### `monstervwep <modelpath>`
+	Optional weapon model attached for third person view.
+
+- ### `monsterweapon <value>`
+	Weapon used when attacking. Provide the integer value of the weapon
+enum. Values are:
+
+	`0` GUN_FIST, `1` GUN_SG, `2` GUN_CG, `3` GUN_RL, `4` GUN_RIFLE,
+	`5` GUN_GL, `6` GUN_PISTOL, `7` GUN_FIREBALL, `8` GUN_ICEBALL,
+	`9` GUN_SLIMEBALL, `10` GUN_BITE, `11` GUN_BARREL.
+	
+- ### `monsterspeed <value>`
+- ### `monsterhealth <value>`
+- ### `monsterfreq <value>`
+	Spawn frequency used by DMSP.
+
+- ### `monsterlag <ms>`
+	Delay between starting to attack and firing.
+
+- ### `monsterrate <ms>`
+	Delay between decision updates when pursuing a target.
+
+- ### `monsterpain <ms>`
+	Time the monster remains in the pain state after being hit.
+
+- ### `monsterloyalty <value>`
+	Higher values make it less likely to retaliate against allied monsters.
+
+- ### `monsterbscale <value>`
+	Bounding box scale (affects the monster's size).
+
+- ### `monsterweight <value>`
+	Weight used in physics calculations.
+
+- ### `monsterpainsound <value>`
+	Integer sound id played when the monster is hurt.
+	
+	Example values:
+	`32` S_PAINO, `33` S_PAINR, `35` S_PAINE, `37` S_PAINS ...
+
+- ### `monsterdiesound <value>`
+	Integer sound id played upon death.
+	
+	Example values:
+	`23` S_DIE1, `34` S_DEATHR, `36` S_DEATHE, `38` S_DEATHS,
+	`40` S_DEATHB.
+</details>
+
+<hr>
 
 ### Visual Studio Code Syntax Highlighting for CubeScript + JavaScript
 If you use VSCode, there is an extension available that handles syntax highlighting for JavaScript embedded in CubeScript (inside `javascript [ ]` blocks): [CS+JS syntax highlighting for VSCode](https://gist.github.com/SalatielSauer/ecdd6c8fd8a5f2dfb5835ac273fe21db).

@@ -7,17 +7,23 @@ namespace game
 {
     static vector<int> teleports;
 
-    static const int TOTMFREQ = 14;
-    static const int NUMMONSTERTYPES = 9;
+    // SauerWUI - custom monsters
+    /*static const int TOTMFREQ = 14;
+    static const int NUMMONSTERTYPES = 9;*/
 
-    struct monstertype      // see docs for how these values modify behaviour
+    struct monstertype
     {
-        short gun, speed, health, freq, lag, rate, pain, loyalty, bscale, weight;
+        // SauerWUI - custom monsters
+        /*short gun, speed, health, freq, lag, rate, pain, loyalty, bscale, weight;
         short painsound, diesound;
-        const char *name, *mdlname, *vwepname;
+        const char* name, * mdlname, * vwepname;*/
+        int gun, speed, health, freq, lag, rate, pain, loyalty, bscale, weight;
+        int painsound, diesound;
+        string name, mdlname, vwepname;
     };
 
-    static const monstertype monstertypes[NUMMONSTERTYPES] =
+    // SauerWUI - custom monsters
+    /*static const monstertype monstertypes[NUMMONSTERTYPES] =
     {
         { GUN_FIREBALL,  15, 100, 3, 0,   100, 800, 1, 10,  90, S_PAINO, S_DIE1,   "an ogro",     "ogro",       "ogro/vwep"},
         { GUN_CG,        18,  70, 2, 70,   10, 400, 2, 10,  50, S_PAINR, S_DEATHR, "a rhino",     "monster/rhino",      NULL},
@@ -28,7 +34,8 @@ namespace game
         { GUN_ICEBALL,   11, 250, 1, 0,    10, 400, 6, 18, 160, S_PAINH, S_DEATHH, "a knight",    "monster/knight",     "monster/knight/vwep"},
         { GUN_SLIMEBALL, 15, 100, 1, 0,   200, 400, 2, 10,  60, S_PAIND, S_DEATHD, "a goblin",    "monster/goblin",     "monster/goblin/vwep"},
         { GUN_GL,        22,  50, 1, 0,   200, 400, 1, 10,  40, S_PAIND, S_DEATHD, "a spider",    "monster/spider",      NULL },
-    };
+    };*/
+    static vector<monstertype> monstertypes;
 
     VAR(skill, 1, 3, 10);
     VAR(killsendsp, 0, 1, 1);
@@ -56,11 +63,15 @@ namespace game
         {
             type = ENT_AI;
             respawn();
-            if(_type>=NUMMONSTERTYPES || _type < 0)
+
+            // SauerWUI - custom monsters
+            //if(_type>=NUMMONSTERTYPES || _type < 0)
+            if(_type<0 || _type>=monstertypes.length())
             {
                 conoutf(CON_WARN, "warning: unknown monster in spawn: %d", _type);
                 _type = 0;
             }
+
             mtype = _type;
             const monstertype &t = monstertypes[mtype];
             eyeheight = 8.0f;
@@ -283,11 +294,67 @@ namespace game
 
     void preloadmonsters()
     {
-        loopi(NUMMONSTERTYPES) preloadmodel(monstertypes[i].mdlname);
+        // SauerWUI - custom monsters
+        //loopi(NUMMONSTERTYPES) preloadmodel(monstertypes[i].mdlname);
+        loopv(monstertypes) preloadmodel(monstertypes[i].mdlname);
+
         for(int i = S_GRUNT1; i <= S_SLIMEBALL; i++) preloadsound(i);
         if(m_dmsp) preloadsound(S_V_FIGHT);
         if(m_classicsp) preloadsound(S_V_RESPAWNPOINT);
     }
+
+    static monstertype *loadingmonster = NULL;
+
+    // SauerWUI - custom monsters
+    ICOMMAND(monsterweapon, "i", (int *gun), if(loadingmonster) loadingmonster->gun = *gun;);
+    ICOMMAND(monsterspeed, "i", (int *spd), if(loadingmonster) loadingmonster->speed = *spd;);
+    ICOMMAND(monsterhealth, "i", (int *hp), if(loadingmonster) loadingmonster->health = *hp;);
+    ICOMMAND(monsterfreq, "i", (int *fq), if(loadingmonster) loadingmonster->freq = *fq;);
+    ICOMMAND(monsterlag, "i", (int *lg), if(loadingmonster) loadingmonster->lag = *lg;);
+    ICOMMAND(monsterrate, "i", (int *rt), if(loadingmonster) loadingmonster->rate = *rt;);
+    ICOMMAND(monsterpain, "i", (int *pn), if(loadingmonster) loadingmonster->pain = *pn;);
+    ICOMMAND(monsterloyalty, "i", (int *ly), if(loadingmonster) loadingmonster->loyalty = *ly;);
+    ICOMMAND(monsterbscale, "i", (int *bs), if(loadingmonster) loadingmonster->bscale = *bs;);
+    ICOMMAND(monsterweight, "i", (int *wt), if(loadingmonster) loadingmonster->weight = *wt;);
+    ICOMMAND(monsterpainsound, "i", (int *ps), if(loadingmonster) loadingmonster->painsound = *ps;);
+    ICOMMAND(monsterdiesound, "i", (int *ds), if(loadingmonster) loadingmonster->diesound = *ds;);
+    ICOMMAND(monstername, "s", (char *n), if(loadingmonster) copystring(loadingmonster->name, n ? n : ""));
+    ICOMMAND(monstermodel, "s", (char *n), if(loadingmonster) copystring(loadingmonster->mdlname, n ? n : ""));
+    ICOMMAND(monstervwep, "s", (char *n), if(loadingmonster) copystring(loadingmonster->vwepname, n ? n : ""));
+
+    // SauerWUI - custom monsters
+    void loadmonster(char* cfg)
+    {
+        monstertype mt;
+        copystring(mt.name, "an ogro");
+        copystring(mt.mdlname, "ogro");
+        copystring(mt.vwepname, "ogro/vwep");
+        mt.gun = GUN_FIREBALL;
+        mt.speed = 15;
+        mt.health = 100;
+        mt.freq = 3;
+        mt.lag = 0;
+        mt.rate = 100;
+        mt.pain = 800;
+        mt.loyalty = 1;
+        mt.bscale = 10;
+        mt.weight = 90;
+        mt.painsound = S_PAINO;
+        mt.diesound = S_DIE1;
+        loadingmonster = &mt;
+        execfile(cfg, false);
+        loadingmonster = NULL;
+        monstertypes.add(mt);
+    }
+    COMMAND(loadmonster, "s");
+
+    // SauerWUI - custom monsters
+    static void clearmonsterdefs()
+    {
+        clearmonsters();
+        monstertypes.shrink(0);
+    }
+    COMMANDN(clearmonsters, clearmonsterdefs, "");
 
     vector<monster *> monsters;
     
@@ -295,13 +362,22 @@ namespace game
     
     void spawnmonster()     // spawn a random monster according to freq distribution in DMSP
     {
-        int n = rnd(TOTMFREQ), type;
-        for(int i = 0; ; i++) if((n -= monstertypes[i].freq)<0) { type = i; break; }
+        // SauerWUI - custom monsters
+        /*int n = rnd(TOTMFREQ), type;
+        for(int i = 0; ; i++) if((n -= monstertypes[i].freq)<0) { type = i; break; }*/
+        int tot = 0;
+        loopv(monstertypes) tot += monstertypes[i].freq;
+        if (!tot) return;
+        int n = rnd(tot), type = 0;
+        for (int i = 0; i < monstertypes.length(); i++) if ((n -= monstertypes[i].freq) < 0) { type = i; break; }
+
         monsters.add(new monster(type, rnd(360), 0, M_SEARCH, 1000, 1));
     }
 
     void clearmonsters()     // called after map start or when toggling edit mode to reset/spawn all monsters to initial state
     {
+        if (monstertypes.empty()) return; // SauerWUI - custom monsters
+
         removetrackedparticles();
         removetrackeddynlights();
         loopv(monsters) delete monsters[i]; 
@@ -358,6 +434,7 @@ namespace game
 
     void updatemonsters(int curtime)
     {
+        if (monstertypes.empty()) return; // SauerWUI - custom monsters
         if(m_dmsp && spawnremain && lastmillis>nextmonster)
         {
             if(spawnremain--==monstertotal) { conoutf(CON_GAMEINFO, "\f2The invasion has begun!"); playsound(S_V_FIGHT); }
@@ -388,6 +465,7 @@ namespace game
 
     void rendermonsters()
     {
+        if (monstertypes.empty()) return; // SauerWUI - custom monsters
         loopv(monsters)
         {
             monster &m = *monsters[i];
