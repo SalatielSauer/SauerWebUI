@@ -1,6 +1,13 @@
 ## 🔍 SauerWebUI Patch Notes
 
-### 22/06/2025 📌
+### 28/06/2025 📌
+- the updater can now ignore specific files;
+- new experimental `level_monsterai` for custom ai scripting;
+- new `loadmonster` command to load custom monsters from .cfg files;
+- `safedo` can no longer assign aliases;
+- new `safemmodel` command to load model cfgs with whitelisted commands.
+
+### 22/06/2025
 - new /importobj command;
 - crosshair no longer appears in the main menu;
 - when running multiple processes, each will use a separate cef cache, no longer breaking cef.
