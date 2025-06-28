@@ -8,7 +8,6 @@ data/*
 !data/monsters
 
 *.obj
-*.exe
 *.lib
 *.pdb
 
