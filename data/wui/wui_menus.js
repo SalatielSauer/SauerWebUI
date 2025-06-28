@@ -101,7 +101,7 @@ window._create_menu_browser = _create_menu_browser;
 
 window.cubescript(`
 newgui main [guistayopen [
-	guitext "^<rgb:255/100/155>SauerWebUI (v0.1)" 0 0.5
+	guitext "^<rgb:255/100/155>SauerWebUI (28/06/2025)" 0 0.5
 	guistrut -0.5
 	guialign 1 [
 		guibutton "test WUI" [

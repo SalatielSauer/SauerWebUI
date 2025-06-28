@@ -11,6 +11,30 @@ class GithubUpdater {
         this.storageKey = `lastsha_${this.repoPath}_${this.config.branch}`;
         this.lastAutoCheckKey = `lastautocheck_${this.repoPath}_${this.config.branch}`;
         this.patchNotesPath = 'PATCHNOTES.md';
+        this.ignoredFilesKey = `ignoredfiles_${this.repoPath}_${this.config.branch}`;
+    }
+
+    getIgnoredFiles() {
+        try {
+            return JSON.parse(localStorage.getItem(this.ignoredFilesKey) || "[]");
+        } catch {
+            return [];
+        }
+    }
+
+    setIgnoredFiles(arr) {
+        localStorage.setItem(this.ignoredFilesKey, JSON.stringify(arr));
+    }
+
+    addIgnoredFile(filename) {
+        const files = this.getIgnoredFiles();
+        if (!files.includes(filename)) files.push(filename);
+        this.setIgnoredFiles(files);
+    }
+
+    removeIgnoredFile(filename) {
+        const files = this.getIgnoredFiles().filter(f => f !== filename);
+        this.setIgnoredFiles(files);
     }
 
     async getLatestCommit() {
@@ -47,6 +71,9 @@ class GithubUpdater {
         let files = await this.getChangedFiles(lastSha);
 
         files = files.filter(f => !f.filename.startsWith('src/'));
+
+        const ignoredFiles = this.getIgnoredFiles();
+        files = files.filter(f => !ignoredFiles.includes(f.filename));
 
         return { changed: files, latestSha, lastSha, latestCommit };
     }
@@ -131,7 +158,7 @@ class GithubUpdater {
                         if (d.percent >= 100 && !completed) {
                             // wait briefly for 'complete', otherwise force mark as complete
                             if (completeTimeout) clearTimeout(completeTimeout);
-                            completeTimeout = setTimeout(markComplete, 700); // 700ms grace period
+                            completeTimeout = setTimeout(markComplete, 700);
                         }
                     }
                     if (d.status === 'complete' && !completed) {
@@ -180,8 +207,11 @@ class GithubUpdater {
         const notesText = await this.fetchPatchNotes();
         //console.log('Update check result:', result);
         body.innerHTML = '';
-        if (result.changed.length === 0) {
-            // show latest commit info and a "check for updates" button
+
+        const ignoredFiles = this.getIgnoredFiles();
+
+        if (result.changed.length === 0 && ignoredFiles.length === 0) {
+            // no files to update or ignored
             const infoDiv = document.createElement('div');
             infoDiv.style.fontSize = '10px';
             infoDiv.style.marginBottom = '10px';
@@ -198,7 +228,6 @@ class GithubUpdater {
                 body.innerHTML = '<p>Re-checking for updates...</p>';
                 await this.showMenu();
             };
-
             body.appendChild(infoDiv);
             body.appendChild(checkBtn);
             if (notesText) {
@@ -221,6 +250,35 @@ class GithubUpdater {
             return;
         }
 
+        if (ignoredFiles.length > 0) {
+            const showIgnoredDiv = document.createElement('div');
+            showIgnoredDiv.style.fontSize = '9px';
+            showIgnoredDiv.style.background = '#1b2c32';
+            showIgnoredDiv.style.padding = '5px';
+            showIgnoredDiv.style.marginBottom = '8px';
+            showIgnoredDiv.style.border = '1px dashed #446';
+            showIgnoredDiv.style.borderRadius = '4px';
+            showIgnoredDiv.style.textAlign = 'right';
+            showIgnoredDiv.style.maxHeight = '150px';
+            showIgnoredDiv.style.overflowX = 'auto';
+            showIgnoredDiv.style.color = '#e5cc8b';
+            showIgnoredDiv.textContent = `Ignored files (${ignoredFiles.length}):`;
+            const ulIgnored = document.createElement('ul');
+            ulIgnored.style.fontSize = '8px';
+            ulIgnored.style.margin = '2px 0 0 15px';
+            ignoredFiles.forEach(fname => {
+                const li = document.createElement('li');
+                li.innerHTML = `${fname} <button style="font-size:8px;min-width:auto;" title="Unignore file">Unignore</button>`;
+                li.querySelector('button').onclick = async () => {
+                    this.removeIgnoredFile(fname);
+                    await this.showMenu();
+                };
+                ulIgnored.appendChild(li);
+            });
+            showIgnoredDiv.appendChild(ulIgnored);
+            body.appendChild(showIgnoredDiv);
+        }
+
         // count file status
         let added = 0, modified = 0, removed = 0;
         let totalAdditions = 0, totalDeletions = 0;
@@ -233,52 +291,98 @@ class GithubUpdater {
         });
 
         // info summary
-        const summary = document.createElement('div');
-        summary.style.marginBottom = '8px';
-        summary.style.padding = '5px';
-        summary.style.fontSize = '9px';
-        summary.style.background = 'black';
-        summary.innerHTML = `
-            <b>${result.changed.length} file(s) changed:</b>
-            <span style="color:#40ff80;">+${added} added</span>,
-            <span style="color:#60a0ff;">~${modified} modified</span>,
-            <span style="color:#ff4040;">-${removed} removed</span><br>
-            <span style="color:#2ea043;">+${totalAdditions} additions</span>,
-            <span style="color:#d73a49;">-${totalDeletions} deletions</span><br>
-            <span style="color:#aaa;">Last update: ${formattedDate}${author ? ` by ${author}` : ''}</span>
-        `;
-        body.appendChild(summary);
+        if (result.changed.length > 0) {
+            const summary = document.createElement('div');
+            summary.style.marginBottom = '8px';
+            summary.style.padding = '5px';
+            summary.style.fontSize = '9px';
+            summary.style.background = 'black';
+            summary.innerHTML = `
+                <b>${result.changed.length} file(s) to update:</b>
+                <span style="color:#40ff80;">+${added} added</span>,
+                <span style="color:#60a0ff;">~${modified} modified</span>,
+                <span style="color:#ff4040;">-${removed} removed</span><br>
+                <span style="color:#2ea043;">+${totalAdditions} additions</span>,
+                <span style="color:#d73a49;">-${totalDeletions} deletions</span><br>
+                <span style="color:#aaa;">Last update: ${formattedDate}${author ? ` by ${author}` : ''}</span>
+            `;
+            body.appendChild(summary);
+        }
 
         // scrollable file list
-        const scrollDiv = document.createElement('div');
-        scrollDiv.style.maxHeight = '200px';
-        scrollDiv.style.overflowY = 'auto';
-        scrollDiv.style.fontSize = '8px';
-        scrollDiv.style.border = '1px dashed rgb(221, 221, 221)';
-        scrollDiv.style.padding = '4px';
-        scrollDiv.style.borderRadius = '4px';
-        scrollDiv.style.background = 'rgb(13 41 25)';
+        if (result.changed.length > 0) {
+            const scrollDiv = document.createElement('div');
+            scrollDiv.style.maxHeight = '150px';
+            scrollDiv.style.overflowY = 'auto';
+            scrollDiv.style.fontSize = '8px';
+            scrollDiv.style.border = '1px dashed rgb(221, 221, 221)';
+            scrollDiv.style.padding = '4px';
+            scrollDiv.style.borderRadius = '4px';
+            scrollDiv.style.background = 'rgb(13 41 25)';
+            const list = document.createElement('ul');
+            list.style.margin = 0;
+            list.style.padding = '0 0 0 18px';
+            const listItems = [];
+            result.changed.forEach(f => {
+                const li = document.createElement('li');
+                li.style.display = 'flex';
+                li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
+                const fileInfo = document.createElement('span');
+                fileInfo.innerHTML = `
+                    ${f.filename} 
+                    <span style="color:#888;">(${f.status}</span>${
+                        (typeof f.additions === 'number' && typeof f.deletions === 'number')
+                            ? `, <span style="color:#2ea043;">+${f.additions}</span> <span style="color:#d73a49;">-${f.deletions}</span>`
+                            : ''
+                    }<span style="color:#888;">)</span>`;
+                li.appendChild(fileInfo);
 
-        const list = document.createElement('ul');
-        list.style.margin = 0;
-        list.style.padding = '0 0 0 18px';
-        // for referencing <li> nodes later:
-        const listItems = [];
-        result.changed.forEach(f => {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                ${f.filename} 
-                <span style="color:#888;">(${f.status}</span>${
-                    (typeof f.additions === 'number' && typeof f.deletions === 'number')
-                        ? `, <span style="color:#2ea043;">+${f.additions}</span> <span style="color:#d73a49;">-${f.deletions}</span>`
-                        : ''
-                }<span style="color:#888;">)</span>`;
-            li.style.marginBottom = '2px';
-            list.appendChild(li);
-            listItems.push(li);
-        });
-        scrollDiv.appendChild(list);
-        body.appendChild(scrollDiv);
+                const ignoreBtn = document.createElement('button');
+                ignoreBtn.textContent = 'Ignore';
+                ignoreBtn.title = 'Skip updating this file';
+                ignoreBtn.style.fontSize = '8px';
+                ignoreBtn.style.minWidth = 'auto';
+                ignoreBtn.onclick = async () => {
+                    this.addIgnoredFile(f.filename);
+                    await this.showMenu();
+                };
+                li.appendChild(ignoreBtn);
+
+                list.appendChild(li);
+                listItems.push(li);
+            });
+            scrollDiv.appendChild(list);
+            body.appendChild(scrollDiv);
+
+            // "Update All" button
+            const btnUpdate = document.createElement('button');
+            btnUpdate.textContent = '🌐Update All';
+            btnUpdate.style.marginTop = '10px';
+            btnUpdate.onclick = async () => {
+                btnUpdate.disabled = true;
+                btnIgnore.disabled = true;
+                // only update non-ignored files
+                await this.updateAll(result.changed, result.latestSha, listItems);
+                scrollDiv.innerHTML = 'All files are up to date ✔️<br>⚠️You may have to restart the client to apply the changes.';
+            };
+
+            // "Skip Patch" button
+            const btnIgnore = document.createElement('button');
+            btnIgnore.textContent = '🚫 Skip Patch';
+            btnIgnore.onclick = async () => {
+                if (confirm("Are you sure? the changes in this patch will not be applied.")) {
+                    localStorage.setItem(this.storageKey, result.latestSha);
+                    await this.showMenu();
+                }
+            };
+
+            const btnContainer = document.createElement('div');
+            btnContainer.appendChild(btnUpdate);
+            btnContainer.appendChild(btnIgnore);
+            body.appendChild(btnContainer);
+        }
+
         if (notesText) {
             const notesDiv = document.createElement('div');
             notesDiv.style.fontSize = '8px';
@@ -295,34 +399,7 @@ class GithubUpdater {
             notesDiv.innerHTML = this.markdownToHtml(notesText);
             body.appendChild(notesDiv);
         }
-        // "Update All" button
-        const btnUpdate = document.createElement('button');
-        btnUpdate.textContent = '🌐Update All';
-        btnUpdate.style.marginTop = '10px';
-        btnUpdate.onclick = async () => {
-            btnUpdate.disabled = true;
-            btnIgnore.disabled = true; // disable both buttons during update
-            await this.updateAll(result.changed, result.latestSha, listItems);
-            scrollDiv.innerHTML = 'All files are up to date ✔️<br>⚠️You may have to restart the client to apply the changes.';
-        };
-
-        // "Skip Patch" button
-        const btnIgnore = document.createElement('button');
-        btnIgnore.textContent = '🚫 Skip Patch';
-        btnIgnore.onclick = async () => {
-            if (confirm("Are you sure? the changes in this patch will not be applied.")) {
-                localStorage.setItem(this.storageKey, result.latestSha);
-                await this.showMenu();
-            }
-        };
-
-        const btnContainer = document.createElement('div');
-        btnContainer.appendChild(btnUpdate);
-        btnContainer.appendChild(btnIgnore);
-
-        body.appendChild(btnContainer);
     }
-
 }
 
 window.githubUpdater = new GithubUpdater();
