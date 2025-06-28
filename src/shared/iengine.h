@@ -120,6 +120,9 @@ extern void packvslot(vector<uchar> &buf, int index);
 extern void packvslot(vector<uchar> &buf, const VSlot *vs);
 
 // command
+struct tagval;
+extern hashnameset<ident> idents;
+void freearg(tagval& v);
 extern int variable(const char *name, int min, int cur, int max, int *storage, identfun fun, int flags);
 extern float fvariable(const char *name, float min, float cur, float max, float *storage, identfun fun, int flags);
 extern char *svariable(const char *name, const char *cur, char **storage, identfun fun, int flags);

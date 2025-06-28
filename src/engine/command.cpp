@@ -18,7 +18,7 @@ enum
 
 VARN(numargs, _numargs, MAXARGS, 0, 0);
 
-static inline void freearg(tagval &v)
+inline void freearg(tagval &v)
 {
     switch(v.type)
     {

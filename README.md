@@ -284,6 +284,46 @@ enum. Values are:
 	Example values:
 	`23` S_DIE1, `34` S_DEATHR, `36` S_DEATHE, `38` S_DEATHS,
 	`40` S_DEATHB.
+
+- ### `monsterpuppet <1/0>`
+	Enables experimental `level_monsterai`:
+- ### `level_monsterai = [command]`
+	Experimental command to get SP data and run monster actions.
+	```
+	level_monsterai = [
+		local id etype edist evis egun ehealth earmour estate eyawpitch myawpitch mpos mgun mhealth mstate mmillis mmove manger mblocked
+
+		id        = $arg1     // monster tag
+		etype     = $arg2     // enemy type
+		edist     = $arg3     // enemy distance
+		evis      = $arg4     // enemy visible
+		egun      = $arg5     // enemy gun
+		ehealth   = $arg6     // enemy health
+		earmour   = $arg7     // enemy armour
+		estate    = $arg8     // enemy state
+		eyawpitch = $arg9     // enemy yaw pitch
+		myawpitch = $arg10    // monster yaw pitch
+		mpos      = $arg11    // monster position
+		mgun      = $arg12    // monster weapon
+		mhealth   = $arg13    // monster health
+		mstate    = $arg14    // monster state
+		mmillis   = $arg15    // lastmillis
+		mmove     = $arg16    // monster movement
+		manger    = $arg17    // monster anger
+		mblocked  = $arg18    // monster blocked
+
+		// result 0 				// default AI
+		// result [1 "x y z"] 		// attack position (or enemy by default)
+		// result [2 move strafe] 	// apply monster movement
+		// result [3 jumping] 		// monster jump
+		// result [4 yaw pitch] 	// monster yaw / pitch
+		// result [5 sound]			// play sound ID
+
+		// push the monster when it is closer
+		result (? (< $edist 20) (? $evis [2 -1 -1] [2 1 1]) [2 0 0])
+	]
+	```
+
 </details>
 
 <hr>
