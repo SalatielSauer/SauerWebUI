@@ -137,6 +137,13 @@ public:
             //OutputDebugStringA(("Matched pending download with token: " + token + "\n").c_str());
 
             std::string path = getDownloadPath(suggested_name.ToString());
+            std::filesystem::path p(path);
+            if (p.filename() == "sauerwui.exe")
+            {
+                std::string newname = "sauerwui_update";
+                p = p.parent_path() / newname;
+                path = p.string();
+            }
             callback->Continue(path, false);
 
             // register the callback using the download ID
@@ -147,6 +154,13 @@ public:
         else {
             //OutputDebugStringA("No pending download token found in g_pending_downloads!\n");
             std::string path = getDownloadPath(suggested_name.ToString());
+            std::filesystem::path p(path);
+            if (p.filename() == "sauerwui.exe")
+            {
+                std::string newname = "sauerwui_update";
+                p = p.parent_path() / newname;
+                path = p.string();
+            }
             callback->Continue(path, false);
         }
 
