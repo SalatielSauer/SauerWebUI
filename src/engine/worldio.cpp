@@ -1416,14 +1416,73 @@ void writeobj(char *name)
 COMMAND(writeobj, "s");
 
 // SauerWUI - import obj as geometry
-void importobj(char* name, float* mscale)
+void importobj(char* name, float* mscale, int *mtl)
 {
     if (!editmode) { conoutf(CON_ERROR, "importobj only allowed in edit mode"); return; }
     defformatstring(fname, "%s.obj", name);
     stream* f = openfile(path(fname), "r");
     if (!f) { conoutf(CON_ERROR, "could not read obj %s", fname); return; }
+    bool loadmtl = mtl && *mtl;
+    struct materialinfo { vec color; int vslot; char *name; };
+    vector<materialinfo> materials;
+    hashtable<const char *, int> materialmap(1<<6);
+    int curmat = -1;
+
+    if(loadmtl)
+    {
+        defformatstring(mtlname, "%s.mtl", name);
+        stream *mf = openfile(path(mtlname), "r");
+        if(mf)
+        {
+            char mline[512];
+            while(mf->getline(mline, sizeof(mline)))
+            {
+                char *t = mline;
+                while(isspace(*t)) t++;
+                if(!*t || *t=='#') continue;
+                if(!strncmp(t, "newmtl", 6))
+                {
+                    t += 6; while(isspace(*t)) t++;
+                    string n; copystring(n, t);
+                    char *end = n + strlen(n); while(end>n && isspace(end[-1])) *--end = '\0';
+                    int *m = materialmap.access(n);
+                    if(m) curmat = *m; else
+                    {
+                        materialinfo &mi = materials.add();
+                        mi.color = vec(1,1,1);
+                        mi.vslot = texmru.empty() ? DEFAULT_GEOM : texmru[0];
+                        mi.name = newstring(n);
+                        materialmap[mi.name] = curmat = materials.length()-1;
+                    }
+                }
+                else if(!strncmp(t, "Kd", 2) && curmat >= 0)
+                {
+                    t += 2;
+                    vec col(1,1,1);
+                    loopi(3)
+                    {
+                        while(isspace(*t)) t++;
+                        if(!*t) break;
+                        col[i] = strtod(t, &t);
+                    }
+                    materials[curmat].color = col;
+                }
+            }
+            delete mf;
+
+            loopv(materials)
+            {
+                VSlot ds; ds.changed = 1<<VSLOT_COLOR; ds.colorscale = materials[i].color;
+                VSlot *vs = editvslot(lookupvslot(materials[i].vslot, false), ds);
+                if(vs) materials[i].vslot = vs->index;
+            }
+            curmat = -1;
+        }
+    }
+
     vector<vec> verts;
     vector<ivec> faces;
+    vector<int> facemats;
     char buf[512];
     float scale = *mscale > 0 ? *mscale : 1.0f;
     vec bbmin(1e16f, 1e16f, 1e16f), bbmax(-1e16f, -1e16f, -1e16f);
@@ -1449,6 +1508,14 @@ void importobj(char* name, float* mscale)
             }
             verts.add(v);
         }
+        else if(loadmtl && !strncmp(s, "usemtl", 6))
+        {
+            s += 6; while(isspace(*s)) s++;
+            string mname; copystring(mname, s);
+            char *end = mname + strlen(mname); while(end>mname && isspace(end[-1])) *--end = '\0';
+            int *m = materialmap.access(mname);
+            curmat = m ? *m : -1;
+        }
         else if (*s == 'f' && isspace(s[1]))
         {
             s++;
@@ -1466,7 +1533,10 @@ void importobj(char* name, float* mscale)
             if (idx.length() >= 3)
             {
                 for (int i = 1; i + 1 < idx.length(); ++i)
+                {
                     faces.add(ivec(idx[0], idx[i], idx[i + 1]));
+                    facemats.add(curmat);
+                }
             }
         }
     }
@@ -1480,13 +1550,16 @@ void importobj(char* name, float* mscale)
         -bbmin.z);
     int tex = texmru.empty() ? DEFAULT_GEOM : texmru[0];
 
-    auto setcubeat = [&](const ivec& p)
+    auto setcubeat = [&](const ivec& p, int slot)
         {
             if (!insideworld(p)) return;
             ivec ro; int rsize;
             cube& c = lookupcube(p, 1, ro, rsize);
-            solidfaces(c);
-            loopk(6) c.texture[k] = tex;
+            if(isempty(c))
+            {
+                solidfaces(c);
+                loopk(6) c.texture[k] = slot;
+            }
         };
 
     auto pointintri = [](const vec& p, const vec& a, const vec& b, const vec& c)->bool
@@ -1521,14 +1594,20 @@ void importobj(char* name, float* mscale)
                 for (int z = int(floor(tmin.z)); z <= int(floor(tmax.z)); ++z)
                 {
                     vec p(float(x) + 0.5f, float(y) + 0.5f, float(z) + 0.5f);
-                    if (pointintri(p, a, b, c)) setcubeat(ivec(x, y, z));
+                    if (pointintri(p, a, b, c))
+                    {
+                        int slot = tex;
+                        if(loadmtl && facemats.inrange(i) && facemats[i] >= 0 && facemats[i] < materials.length())
+                            slot = materials[facemats[i]].vslot;
+                        setcubeat(ivec(x, y, z), slot);
+                    }
                 }
     }
     mpremip(true);
     allchanged();
 }
 
-COMMAND(importobj, "sf");
+COMMAND(importobj, "sfi");
 
 #endif
 
