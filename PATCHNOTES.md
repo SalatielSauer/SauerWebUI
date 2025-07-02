@@ -1,6 +1,16 @@
 ## 🔍 SauerWebUI Patch Notes
 
-### 28/06/2025 📌
+### 02/07/2025 📌
+- `importobj <file> <size>` now supports material colors (not all colors may be displayed depending on the size parameter you set);
+- to make things easier, the binary can now be downloaded with the updater; just restart the client as soon as an update finishes;
+- new `writeobjuvmap <name> <dump lightmap texture 1/0>` to export a map as a .obj file containing lightmap coordinates;
+- new `importlms` to replace the current map's lightmap with an external image (the image must be "indexed colors" type; see below for how to convert it using GIMP).
+<details>
+  <summary>how to process lightmaps using GIMP</summary>
+  <img src="https://github.com/user-attachments/assets/19733866-b470-4e9f-a3de-186460216bcd">
+</details>
+
+### 28/06/2025
 - the updater can now ignore specific files;
 - new experimental `level_monsterai` for custom ai scripting;
 - new `loadmonster` command to load custom monsters from .cfg files;
