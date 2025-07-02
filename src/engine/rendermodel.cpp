@@ -1235,9 +1235,9 @@ void dumpmmodels(char* name, char* texbase)
                     {
                         const skelmodel::tri& t = sm->tris[l];
                         f->printf("f %d/%d %d/%d %d/%d\n",
-                            voffset + t.vert[0] + 1, toffset + t.vert[0] + 1,
+                            voffset + t.vert[2] + 1, toffset + t.vert[2] + 1,
                             voffset + t.vert[1] + 1, toffset + t.vert[1] + 1,
-                            voffset + t.vert[2] + 1, toffset + t.vert[2] + 1);
+                            voffset + t.vert[0] + 1, toffset + t.vert[0] + 1);
                     }
                     voffset += sm->numverts;
                     toffset += sm->numverts;
@@ -1260,9 +1260,9 @@ void dumpmmodels(char* name, char* texbase)
                     {
                         const vertmodel::tri& t = vm->tris[l];
                         f->printf("f %d/%d %d/%d %d/%d\n",
-                            voffset + t.vert[0] + 1, toffset + t.vert[0] + 1,
+                            voffset + t.vert[2] + 1, toffset + t.vert[2] + 1,
                             voffset + t.vert[1] + 1, toffset + t.vert[1] + 1,
-                            voffset + t.vert[2] + 1, toffset + t.vert[2] + 1);
+                            voffset + t.vert[0] + 1, toffset + t.vert[0] + 1);
                     }
                     voffset += vm->numverts;
                     toffset += vm->numverts;
@@ -1281,7 +1281,13 @@ void dumpmmodels(char* name, char* texbase)
     loopv(usedmats)
     {
         f->printf("newmtl mat%d\n", i);
-        defformatstring(texname, "%s/%s", base, usedmats[i]->name);
+        const char* tname = usedmats[i]->name;
+        if (tname[0] == '<')
+        {
+            const char* end = strrchr(tname, '>');
+            if (end) tname = end + 1;
+        }
+        defformatstring(texname, "%s/%s", base, tname);
         path(texname);
         f->printf("map_Kd %s\n\n", texname);
     }
