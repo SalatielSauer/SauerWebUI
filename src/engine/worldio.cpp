@@ -1415,6 +1415,141 @@ void writeobj(char *name)
     
 COMMAND(writeobj, "s");
 
+// SauerWUI - export lightmaps
+void writeobjuvmap(char* name, int* dump)
+{
+    defformatstring(fname, "%s.obj", name);
+    stream* f = openfile(path(fname), "w");
+    if (!f) return;
+    f->printf("# obj file of Cube 2 lightmap UVs\n\n");
+    defformatstring(mtlname, "%s.mtl", name);
+    path(mtlname);
+    f->printf("mtllib %s\n\n", mtlname);
+
+    vector<vec> verts;
+    vector<vec2> lmcoords;
+    hashtable<vec, int> shareverts(1 << 16);
+    hashtable<vec2, int> sharetc(1 << 16);
+    hashtable<int, vector<ivec2> > mtls(1 << 8);
+    vector<int> usedlm;
+    vec bbmin(1e16f, 1e16f, 1e16f), bbmax(-1e16f, -1e16f, -1e16f);
+    loopv(valist)
+    {
+        vtxarray& va = *valist[i];
+        ushort* edata = NULL;
+        vertex* vdata = NULL;
+        if (!readva(&va, edata, vdata)) continue;
+        ushort* idx = edata;
+        loopj(va.texs)
+        {
+            elementset& es = va.eslist[j];
+            if (es.lmid < LMID_RESERVED) { idx += es.length[1]; continue; }
+            LightMapTexture& lmtex = lightmaptexs[es.lmid];
+            loopk(es.length[1])
+            {
+                int n = idx[k] - va.voffset;
+                const vertex& v = vdata[n];
+                const vec& pos = v.pos;
+
+                float gx = v.lm.x * (lmtex.w / float(SHRT_MAX)) - 0.5f;
+                float gy = v.lm.y * (lmtex.h / float(SHRT_MAX)) - 0.5f;
+                vec2 tc(0, 1);
+                int lmindex = es.lmid;
+                loopl(lightmaps.length())
+                {
+                    LightMap& lm = lightmaps[l];
+                    if (lm.tex == es.lmid &&
+                        gx >= lm.offsetx && gx < lm.offsetx + LM_PACKW &&
+                        gy >= lm.offsety && gy < lm.offsety + LM_PACKH)
+                    {
+                        tc.x = (gx - lm.offsetx) / float(LM_PACKW);
+                        tc.y = 1.0f - ((gy - lm.offsety) / float(LM_PACKH));
+                        lmindex = l;
+                        break;
+                    }
+                }
+
+                vector<ivec2>& keys = mtls[lmindex];
+                if (usedlm.find(lmindex) < 0) usedlm.add(lmindex);
+
+                ivec2& key = keys.add();
+                key.x = shareverts.access(pos, verts.length());
+                if (key.x == verts.length())
+                {
+                    verts.add(pos);
+                    loopl(3)
+                    {
+                        bbmin[l] = min(bbmin[l], pos[l]);
+                        bbmax[l] = max(bbmax[l], pos[l]);
+                    }
+                }
+                key.y = sharetc.access(tc, lmcoords.length());
+                if (key.y == lmcoords.length()) lmcoords.add(tc);
+            }
+            idx += es.length[1];
+        }
+        delete[] edata;
+        delete[] vdata;
+    }
+
+    vec center(-(bbmax.x + bbmin.x) / 2, -(bbmax.y + bbmin.y) / 2, -bbmin.z);
+    loopv(verts)
+    {
+        vec v = verts[i];
+        v.add(center);
+        if (v.y != floor(v.y)) f->printf("v %.3f ", -v.y); else f->printf("v %d ", int(-v.y));
+        if (v.z != floor(v.z)) f->printf("%.3f ", v.z); else f->printf("%d ", int(v.z));
+        if (v.x != floor(v.x)) f->printf("%.3f\n", v.x); else f->printf("%d\n", int(v.x));
+    }
+    f->printf("\n");
+    loopv(lmcoords)
+    {
+        const vec2& tc = lmcoords[i];
+        f->printf("vt %.6f %.6f\n", tc.x, 1 - tc.y);
+    }
+    f->printf("\n");
+
+    usedlm.sort();
+    loopv(usedlm)
+    {
+        vector<ivec2>& keys = mtls[usedlm[i]];
+        if (!keys.length()) continue;
+        f->printf("g lm%d\n", usedlm[i]);
+        f->printf("usemtl lm%d\n\n", usedlm[i]);
+        for (int i = 0; i < keys.length(); i += 3)
+        {
+            f->printf("f");
+            loopk(3) f->printf(" %d/%d", keys[i + 2 - k].x + 1, keys[i + 2 - k].y + 1);
+            f->printf("\n");
+        }
+        f->printf("\n");
+    }
+    delete f;
+
+    f = openfile(mtlname, "w");
+    if (!f) return;
+    f->printf("# mtl file of Cube 2 lightmap UVs\n\n");
+    const char* map = game::getclientmap(), * shortname = strrchr(map, '/');
+    if (shortname) shortname++; else shortname = map;
+    loopv(usedlm)
+    {
+        vector<ivec2>& keys = mtls[usedlm[i]];
+        if (!keys.length()) continue;
+        f->printf("newmtl lm%d\n", usedlm[i]);
+        defformatstring(texname, "lightmap_%s_%d.png", shortname, usedlm[i]);
+        f->printf("map_Kd %s\n\n", texname);
+    }
+    delete f;
+
+    if (dump && *dump)
+    {
+        extern void dumplms();
+        dumplms();
+    }
+}
+
+COMMAND(writeobjuvmap, "si");
+
 // SauerWUI - import obj as geometry
 void importobj(char* name, float* mscale, int *mtl)
 {
