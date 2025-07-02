@@ -1153,3 +1153,139 @@ void setbbfrommodel(dynent *d, const char *mdl)
     }
 }
 
+// SauerWUI - export mapmodels
+int findtex(Texture* tex, vector<Texture*>& used)
+{
+    loopv(used) if (used[i] == tex) return i;
+    used.add(tex);
+    return used.length() - 1;
+}
+
+void dumpmmodels(char* name, char* texbase)
+{
+    defformatstring(objname, "%s.obj", name);
+    stream* f = openfile(path(objname), "w");
+    if (!f) { conoutf(CON_ERROR, "could not write %s", objname); return; }
+    f->printf("# obj file of Cube 2 placed map models\n\n");
+
+    defformatstring(mtlname, "%s.mtl", name);
+    path(mtlname);
+    f->printf("mtllib %s\n\n", mtlname);
+
+    // compute world center to match writeobj
+    vec bbmin(1e16f, 1e16f, 1e16f), bbmax(-1e16f, -1e16f, -1e16f);
+    loopv(valist)
+    {
+        vtxarray* va = valist[i];
+        loopk(3)
+        {
+            bbmin[k] = min(bbmin[k], float(va->geommin[k]));
+            bbmax[k] = max(bbmax[k], float(va->geommax[k]));
+        }
+    }
+    vec center(0, 0, 0);
+    if (bbmin.x <= bbmax.x) center = vec(-(bbmax.x + bbmin.x) / 2, -(bbmax.y + bbmin.y) / 2, -bbmin.z);
+
+    preloadusedmapmodels();
+
+    vector<Texture*> usedmats;
+
+    const vector<extentity*>& ents = entities::getents();
+    int voffset = 0, toffset = 0;
+    loopv(ents)
+    {
+        const extentity& e = *ents[i];
+        if (e.type != ET_MAPMODEL) continue;
+        model* mm = loadmapmodel(e.attr2);
+        if (!mm) continue;
+        animmodel* m = (animmodel*)mm;
+
+        matrix4x3 mat; mat.identity();
+        mat.settranslation(e.o);
+        mat.rotate_around_z(e.attr1 * RAD);
+        if (m->offsetyaw) mat.rotate_around_z(m->offsetyaw * RAD);
+
+        loopvj(m->parts)
+        {
+            animmodel::part* p = m->parts[j];
+            if (!p || !p->meshes) continue;
+            loopvk(p->meshes->meshes)
+            {
+                animmodel::mesh* mesh = p->meshes->meshes[k];
+                int midx = findtex(p->skins.inrange(k) ? p->skins[k].tex : notexture, usedmats);
+                if (midx == usedmats.length()) usedmats.add(p->skins.inrange(k) ? p->skins[k].tex : notexture);
+
+                f->printf("g mapmodel_%d_%d_%d\nusemtl mat%d\n", i, j, k, midx);
+
+                if (m->type() == MDL_MD5 || m->type() == MDL_IQM || m->type() == MDL_SMD)
+                {
+                    skelmodel::skelmesh* sm = (skelmodel::skelmesh*)mesh;
+                    loopl(sm->numverts)
+                    {
+                        vec v = sm->verts[l].pos;
+                        vec2 tc = sm->verts[l].tc;
+                        v.mul(m->scale);
+                        v.add(p->translate);
+                        v = mat.transform(v);
+                        v.add(center);
+                        f->printf("v %.3f %.3f %.3f\n", -v.y, v.z, v.x);
+                        f->printf("vt %.6f %.6f\n", tc.x, 1 - tc.y);
+                    }
+                    loopl(sm->numtris)
+                    {
+                        const skelmodel::tri& t = sm->tris[l];
+                        f->printf("f %d/%d %d/%d %d/%d\n",
+                            voffset + t.vert[0] + 1, toffset + t.vert[0] + 1,
+                            voffset + t.vert[1] + 1, toffset + t.vert[1] + 1,
+                            voffset + t.vert[2] + 1, toffset + t.vert[2] + 1);
+                    }
+                    voffset += sm->numverts;
+                    toffset += sm->numverts;
+                }
+                else
+                {
+                    vertmodel::vertmesh* vm = (vertmodel::vertmesh*)mesh;
+                    loopl(vm->numverts)
+                    {
+                        vec v = vm->verts[l].pos;
+                        vec2 tc = vm->tcverts[l].tc;
+                        v.mul(m->scale);
+                        v.add(p->translate);
+                        v = mat.transform(v);
+                        v.add(center);
+                        f->printf("v %.3f %.3f %.3f\n", -v.y, v.z, v.x);
+                        f->printf("vt %.6f %.6f\n", tc.x, 1 - tc.y);
+                    }
+                    loopl(vm->numtris)
+                    {
+                        const vertmodel::tri& t = vm->tris[l];
+                        f->printf("f %d/%d %d/%d %d/%d\n",
+                            voffset + t.vert[0] + 1, toffset + t.vert[0] + 1,
+                            voffset + t.vert[1] + 1, toffset + t.vert[1] + 1,
+                            voffset + t.vert[2] + 1, toffset + t.vert[2] + 1);
+                    }
+                    voffset += vm->numverts;
+                    toffset += vm->numverts;
+                }
+                f->printf("\n");
+            }
+        }
+    }
+
+    delete f;
+
+    f = openfile(mtlname, "w");
+    if (!f) return;
+    f->printf("# mtl file of Cube 2 placed map models\n\n");
+    const char* base = texbase && texbase[0] ? texbase : "..";
+    loopv(usedmats)
+    {
+        f->printf("newmtl mat%d\n", i);
+        defformatstring(texname, "%s/%s", base, usedmats[i]->name);
+        path(texname);
+        f->printf("map_Kd %s\n\n", texname);
+    }
+    delete f;
+}
+
+COMMAND(dumpmmodels, "ss");
