@@ -887,3 +887,149 @@ void rendermaterials()
     glEnable(GL_CULL_FACE);
 }
 
+// SauerWUI - export materials
+static void collectmatverts(const materialsurface& m, vector<vec>& verts)
+{
+    float x = m.o.x, y = m.o.y, z = m.o.z, csize = m.csize, rsize = m.rsize;
+    switch (m.orient)
+    {
+#define GENFACEORIENT(orient, v0, v1, v2, v3) \
+        case orient: v0 v1 v2 v3 break;
+#define GENFACEVERT(orient, vert, mx,my,mz, sx,sy,sz) \
+        { \
+            verts.add(vec(mx sx, my sy, mz sz)); \
+        }
+        GENFACEVERTS(x, x, y, y, z, z, /**/, +csize, /**/, +rsize, +0.0f, -0.0f)
+#undef GENFACEORIENT
+#undef GENFACEVERT
+    }
+}
+
+// SauerWUI - export materials
+static void calcworldbb(vec& bbmin, vec& bbmax)
+{
+    bbmin = vec(1e16f, 1e16f, 1e16f);
+    bbmax = vec(-1e16f, -1e16f, -1e16f);
+    loopv(valist)
+    {
+        vtxarray& va = *valist[i];
+        ushort* edata = NULL;
+        vertex* vdata = NULL;
+        if (!readva(&va, edata, vdata)) continue;
+        ushort* idx = edata;
+        loopj(va.texs)
+        {
+            elementset& es = va.eslist[j];
+            loopk(es.length[1])
+            {
+                int n = idx[k] - va.voffset;
+                const vertex& v = vdata[n];
+                const vec& pos = v.pos;
+                loopl(3)
+                {
+                    bbmin[l] = min(bbmin[l], pos[l]);
+                    bbmax[l] = max(bbmax[l], pos[l]);
+                }
+            }
+            idx += es.length[1];
+        }
+        delete[] edata;
+        delete[] vdata;
+    }
+}
+
+// SauerWUI - export materials
+void dumpmaterials(char* name)
+{
+    defformatstring(fname, "%s.obj", name);
+    stream* f = openfile(path(fname), "w");
+    if (!f) return;
+    f->printf("# obj file of Cube 2 materials\n\n");
+    defformatstring(mtlname, "%s.mtl", name);
+    path(mtlname);
+    f->printf("mtllib %s\n\n", mtlname);
+
+    struct face { int mat; int vert[4]; };
+    vector<vec> verts;
+    vector<face> faces;
+    vec worldmin, worldmax;
+    calcworldbb(worldmin, worldmax);
+    loopv(valist)
+    {
+        vtxarray& va = *valist[i];
+        loopj(va.matsurfs)
+        {
+            const materialsurface& m = va.matbuf[j];
+            int mat = m.material & ~MATF_INDEX;
+            if (mat == MAT_AIR) continue;
+            vec vs[4];
+            vector<vec> temp;
+            collectmatverts(m, temp);
+            loopk(4) vs[k] = temp[k];
+            face fce; fce.mat = mat;
+            loopk(4)
+            {
+                fce.vert[k] = verts.length();
+                verts.add(vs[k]);
+            }
+            faces.add(fce);
+        }
+    }
+
+    vec center(-(worldmax.x + worldmin.x) / 2, -(worldmax.y + worldmin.y) / 2, -worldmin.z);
+    loopv(verts)
+    {
+        vec v = verts[i];
+        v.add(center);
+        if (v.y != floor(v.y)) f->printf("v %.3f ", -v.y); else f->printf("v %d ", int(-v.y));
+        if (v.z != floor(v.z)) f->printf("%.3f ", v.z); else f->printf("%d ", int(v.z));
+        if (v.x != floor(v.x)) f->printf("%.3f\n", v.x); else f->printf("%d\n", int(v.x));
+    }
+    f->printf("\n");
+
+    vector<int> used;
+    loopv(faces) if (used.find(faces[i].mat) < 0) used.add(faces[i].mat);
+    used.sort();
+
+    loopv(used)
+    {
+        int mat = used[i];
+        const char* matname = findmaterialname(mat);
+        if (!matname) { defformatstring(tmp, "mat%d", mat); matname = tmp; }
+        f->printf("g material_%s\n", matname);
+        f->printf("usemtl material_%s\n\n", matname);
+        loopvj(faces) if (faces[j].mat == mat)
+        {
+            f->printf("f %d %d %d %d\n", faces[j].vert[3] + 1, faces[j].vert[2] + 1, faces[j].vert[1] + 1, faces[j].vert[0] + 1);
+        }
+        f->printf("\n");
+    }
+    delete f;
+
+    f = openfile(mtlname, "w");
+    if (!f) return;
+    f->printf("# mtl file of Cube 2 materials\n\n");
+    loopv(used)
+    {
+        int mat = used[i];
+        const char* matname = findmaterialname(mat);
+        if (!matname) { defformatstring(tmp, "mat%d", mat); matname = tmp; }
+        vec color(1, 1, 1);
+        switch (mat)
+        {
+        case MAT_WATER:    color = vec(0, 0, 85).div(255.0f); break; // blue
+        case MAT_CLIP:     color = vec(85, 0, 0).div(255.0f); break; // red
+        case MAT_GLASS:    color = vec(0, 85, 85).div(255.0f); break; // cyan
+        case MAT_NOCLIP:   color = vec(0, 85, 0).div(255.0f); break; // green
+        case MAT_LAVA:     color = vec(85, 40, 0).div(255.0f); break; // orange
+        case MAT_GAMECLIP: color = vec(85, 85, 0).div(255.0f); break; // yellow
+        case MAT_DEATH:    color = vec(40, 40, 40).div(255.0f); break; // black
+        case MAT_ALPHA:    color = vec(85, 0, 85).div(255.0f); break; // pink
+        }
+        f->printf("newmtl material_%s\n", matname);
+        f->printf("Kd %.3f %.3f %.3f\n\n", color.x, color.y, color.z);
+    }
+    delete f;
+}
+
+COMMAND(dumpmaterials, "s");

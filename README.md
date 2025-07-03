@@ -236,6 +236,10 @@ There are some experimental files in the `data/wui` folder, some of which don’
 - ### `dumpmmodels <name> <optional texture path>`
 	Exports all mapmodels of the current map as a single .obj including their textures in a .mtl file.
 
+- ### `dumpmaterials <name>`
+	Exports all materials of the current map as a single .obj, each with a different color.
+
+
 <details>
   <summary>how to process lightmaps using GIMP</summary>
   <img src="https://github.com/user-attachments/assets/19733866-b470-4e9f-a3de-186460216bcd">
