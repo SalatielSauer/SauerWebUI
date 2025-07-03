@@ -1451,8 +1451,8 @@ void writeobjuvmap(char* name, int* dump)
                 const vertex& v = vdata[n];
                 const vec& pos = v.pos;
 
-                float gx = v.lm.x * (lmtex.w / float(SHRT_MAX)) - 0.5f;
-                float gy = v.lm.y * (lmtex.h / float(SHRT_MAX)) - 0.5f;
+                float gx = v.lm.x * (lmtex.w / float(SHRT_MAX));
+                float gy = v.lm.y * (lmtex.h / float(SHRT_MAX));
                 vec2 tc(0, 1);
                 int lmindex = es.lmid;
                 loopl(lightmaps.length())
@@ -1508,14 +1508,15 @@ void writeobjuvmap(char* name, int* dump)
         f->printf("vt %.6f %.6f\n", tc.x, 1 - tc.y);
     }
     f->printf("\n");
-
+    const char* map = game::getclientmap(), * shortname = strrchr(map, '/');
+    if (shortname) shortname++; else shortname = map;
     usedlm.sort();
     loopv(usedlm)
     {
         vector<ivec2>& keys = mtls[usedlm[i]];
         if (!keys.length()) continue;
-        f->printf("g lm%d\n", usedlm[i]);
-        f->printf("usemtl lm%d\n\n", usedlm[i]);
+        f->printf("g lightmap_%s_%d\n", shortname, usedlm[i]);
+        f->printf("usemtl lightmap_%s_%d\n\n", shortname, usedlm[i]);
         for (int i = 0; i < keys.length(); i += 3)
         {
             f->printf("f");
@@ -1529,13 +1530,12 @@ void writeobjuvmap(char* name, int* dump)
     f = openfile(mtlname, "w");
     if (!f) return;
     f->printf("# mtl file of Cube 2 lightmap UVs\n\n");
-    const char* map = game::getclientmap(), * shortname = strrchr(map, '/');
-    if (shortname) shortname++; else shortname = map;
+
     loopv(usedlm)
     {
         vector<ivec2>& keys = mtls[usedlm[i]];
         if (!keys.length()) continue;
-        f->printf("newmtl lm%d\n", usedlm[i]);
+        f->printf("newmtl lightmap_%s_%d\n", shortname, usedlm[i]);
         defformatstring(texname, "lightmap_%s_%d.png", shortname, usedlm[i]);
         f->printf("map_Kd %s\n\n", texname);
     }
