@@ -100,12 +100,9 @@ window._create_menu_browser = _create_menu_browser;
 //window.wui.showMenu('main');
 
 window.cubescript(`
-if (=s (getalias "compareversion") "") [
-	sauerwui_version = "02/07/2025" // fallback value, don't change.
-	_packages_version = 1
-] [
-	_packages_version = (compareversion "07-07-2025") // change this instead.
-]
+nodebug [compareversion = [result 1]]
+
+_packages_version = (compareversion "07-07-2025")
 
 newgui main [guistayopen [
 	if (= $_packages_version 0) [
