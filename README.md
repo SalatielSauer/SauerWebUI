@@ -32,6 +32,59 @@ If you can help with a setup to build on Linux, it would be appreciated.
 ## Known Issues
 It won't work if you install it side by side with a P1xbraten installation (reasons I still don't know), so I recommend installing it alongside the vanilla installation.
 
+<hr>
+
+## Functions
+
+- [WUI](#wui)
+  - [`javascript [ ... ]`](#javascript---)
+  - [WUI Standard Library](#wui-standard-library)
+  - [`exec <file.js>`](#exec-filejs)
+- [Miscellaneous Commands](#misc)
+  - [`guiimagestring <base64 string> [command] <size> <overlay 0/1>`](#guiimagestring-base64-string-command-size-overlay-01)
+  - [`guiimageurl <url> [command] <size> <overlay 0/1>`](#guiimageurl-url-command-size-overlay-01)
+  - [`guitext <text> <icon> <size>`](#guitext-text-icon-size)
+  - [`guibutton <text> [command] <icon> <size>`](#guibutton-text-command-icon-size)
+  - [Custom RGB text support](#custom-rgb-text-support)
+  - [`addselection`](#addselection)
+  - [`multiselmode <0/1>`](#multiselmode-01)
+  - [`loopvarsbyprefix <var> <prefix> [command]`](#loopvarsbyprefix-var-prefix-command)
+  - [`prunevarsbyprefix <prefix>`](#prunevarsbyprefix-prefix)
+  - [`mapassets [json]`](#mapassets-json)
+  - [`mapcfg [command]`](#mapcfg-command)
+  - [`safedo [command]`](#safedo-command)
+  - [`setmapvar <var> <value>`](#setmapvar-var-value)
+  - [`getmapvar <var>`](#getmapvar-var)
+  - [`setmapvar particletex_ID [command]`](#setmapvar-particletex_id-command)
+  - [`importobj <file> <size>`](#importobj-file-size)
+  - [`importlms`](#importlms)
+  - [`writeobjuvmap <name> <dump lightmap texture 1/0>`](#writeobjuvmap-name-dump-lightmap-texture-10)
+  - [`dumpmmodels <name> <optional texture path>`](#dumpmmodels-name-optional-texture-path)
+  - [`dumpmaterials <name>`](#dumpmaterials-name)
+  - [`loadmonster <config>`](#loadmonster-config)
+  - [`clearmonsters`](#clearmonsters)
+  - <details>
+	<summary>Monster Commands</summary>
+
+	- [`monstername <text>`](#monstername-text)
+	- [`monstermodel <modelpath>`](#monstermodel-modelpath)
+	- [`monstervwep <modelpath>`](#monstervwep-modelpath)
+	- [`monsterweapon <value>`](#monsterweapon-value)
+	- [`monsterspeed <value>`](#monsterspeed-value)
+	- [`monsterhealth <value>`](#monsterhealth-value)
+	- [`monsterfreq <value>`](#monsterfreq-value)
+	- [`monsterlag <ms>`](#monsterlag-ms)
+	- [`monsterrate <ms>`](#monsterrate-ms)
+	- [`monsterpain <ms>`](#monsterpain-ms)
+	- [`monsterloyalty <value>`](#monsterloyalty-value)
+	- [`monsterbscale <value>`](#monsterbscale-value)
+	- [`monsterweight <value>`](#monsterweight-value)
+	- [`monsterpainsound <value>`](#monsterpainsound-value)
+	- [`monsterdiesound <value>`](#monsterdiesound-value)
+	- [`monsterpuppet <1/0>`](#monsterpuppet-10)
+	- [`level_monsterai = [command]`](#level_monsterai--command)
+	</details>
+
 ## WUI
 
 - ### `javascript [ ... ]`
@@ -208,12 +261,13 @@ There are some experimental files in the `data/wui` folder, some of which don’
 
 - ### `safedo [command]`
 	Similar to `do`, but executes CubeScript with a limited list of allowed commands.
-	The available commands are:
+	Some of the available commands are:
 	```
     "texture", "safemmodel", "addzip", "removezip",
     "shader", "setshader", "defuniformparam", "findfile",
     "texturereset", "mapmodelreset", "maptitle", "echo",
-    "concat", "concatword", "getmillis",
+    "sub*", "str*", "at" "indexof", "if",
+    "concat*","format", "get*", "ent*", "timeremaining",
     "mdl*", "md2*", "md3*", "md5*", "obj*", "smd*", "iqm*"
 	```
 
@@ -223,8 +277,26 @@ There are some experimental files in the `data/wui` folder, some of which don’
 - ### `getmapvar <var>`
 	Retrieve the value of a map variable (such as those created with `setmapvar`).
 
+- ### `setmapvar particletex_ID [command]`
+	Defines a CubeScript that must return a string to be displayed on particle number 14 (`/newent particles 14 2`), example:
+	```
+	setmapvar particletex_2 [ format "hello %1" (getname) ]
+	```
+	The second attribute of the particle (after its name) defines the mapvar ID.
+
+	The third attribute defines the size of the text.
+
+	The fourth attribute defines the color.
+
+	The fifth atrribute defines the orientation (0 = camera, 1 = left, 2 = right, 3 = back, 4 = front, 5 = bottom, 6 = top).
+
+	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_5.png)
+
+
 - ### `importobj <file> <size>`
 	Imports an .obj model file as cubes in a voxelized style and places it in the current selection, the larger the size, the more detailed the geometry will be.
+
+	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_4.png)
 
 - ### `importlms`
 	Replaces the current map's lightmap with an external image (the image must be "indexed colors" type; see below for how to convert it using GIMP).
@@ -235,6 +307,8 @@ There are some experimental files in the `data/wui` folder, some of which don’
 
 - ### `dumpmmodels <name> <optional texture path>`
 	Exports all mapmodels of the current map as a single .obj including their textures in a .mtl file.
+
+	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_lightmaps_models_thumb.png)
 
 - ### `dumpmaterials <name>`
 	Exports all materials of the current map as a single .obj, each with a different color.
