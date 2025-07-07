@@ -167,6 +167,7 @@ extern bool executebool(ident *id, tagval *args, int numargs, bool lookup = fals
 extern bool execidentbool(const char *name, bool noid = false, bool lookup = false);
 extern bool execfile(const char *cfgfile, bool msg = true);
 extern bool execsafefile(const char *cfgfile, bool msg = true);  // SauerWUI - safe 'do' (model cfg)
+extern char *dosafestr(const char *p); // SauerWUI - safe 'do' helper
 extern void alias(const char *name, const char *action);
 extern void alias(const char *name, tagval &v);
 extern const char *getalias(const char *name);

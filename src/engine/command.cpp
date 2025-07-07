@@ -1020,7 +1020,11 @@ static const char* safewhitelist[] =
     "texture", "safemmodel", "addzip", "removezip",
     "shader", "setshader", "defuniformparam", "findfile",
     "texturereset", "mapmodelreset", "maptitle", "echo",
-    "concat", "concatword", "getmillis",
+    "sub*", "str*", "at" "indexof", "if", "?",
+    "+", "*", "-", "+f", "*f", "-f", "=", "!=", "<", ">", "<=", ">=",
+    "=f", "!=f", "<f", ">f", "<=f", ">=f", "^", "!", "&", "|", "~",
+    "^~", "&~", "|~", "<<", ">>", "&&", "||",
+    "concat*","format", "get*", "-getmap", "ent*", "timeremaining",
     "mdl*", "md2*", "md3*", "md5*", "obj*", "smd*", "iqm*",
     NULL
 };
@@ -1028,16 +1032,27 @@ static const char* safewhitelist[] =
 // SauerWUI - safe 'do'
 static bool issafeword(const char* name)
 {
+    bool allowed = false;
     for (const char** w = safewhitelist; *w; ++w)
     {
-        const char *p = *w;
+        const char* p = *w;
+        bool negative = false;
+        if (p[0] == '-') { negative = true; ++p; }
+
         size_t len = strlen(p);
-        if(len && p[len-1] == '*')
+        bool wildcard = (len > 1) && (p[len - 1] == '*');
+        bool match = false;
+        if (wildcard ? !strncasecmp(name, p, len - 1) : !strcasecmp(name, p))
+            match = true;
+
+        if (match)
         {
-            if(!strncasecmp(name, p, len-1)) return true;
+            if (negative) return false;
+            allowed = true;
         }
-        else if(!strcasecmp(name, p)) return true;
     }
+
+    if (allowed) return true;
     ident* id = idents.access(name);
     return id && id->type == ID_SVAR;
 }
@@ -2776,6 +2791,16 @@ void floatret(float v)
 #define ICOMMANDNAME(name) _stdcmd
 
 ICOMMAND(do, "e", (uint *body), executeret(body, *commandret));
+
+// SauerWUI - safe 'do'
+char* dosafestr(const char* p)
+{
+    bool old = safedo_active;
+    safedo_active = true;
+    char* s = executestr(p);
+    safedo_active = old;
+    return s;
+}
 
 // SauerWUI - safe 'do'
 void dosafedo(const char* body)
