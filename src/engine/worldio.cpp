@@ -1123,7 +1123,17 @@ bool load_world(const char *mname, const char *cname)        // still supports a
                 f->read(val, slen);
                 val[slen] = '\0';
 
-                if(exists) setsvar(name, val);
+                // SauerWUI - custom mapvars
+                if (!exists)
+                {
+                    char** storage = new char*;
+                    *storage = newstring(val);
+                    addident(new ident(ID_SVAR, newstring(name), storage, NULL, IDF_OVERRIDE));
+                    exists = true;
+                }
+                else {
+                    setsvar(name, val);
+                }
                 if(dbgvars) conoutf(CON_DEBUG, "read svar %s: %s", name, val);
                 delete[] val; // SauerWUI
                 break;
