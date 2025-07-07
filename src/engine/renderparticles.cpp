@@ -99,6 +99,7 @@ enum
     PT_FIREBALL,
     PT_LIGHTNING,
     PT_FLARE,
+    PT_MAPTEXT, // SauerWUI - custom text particle
 
     PT_MOD    = 1<<8,
     PT_RND4   = 1<<9,
@@ -117,7 +118,19 @@ enum
     PT_FLIP  = PT_HFLIP | PT_VFLIP | PT_ROT
 };
 
-const char *partnames[] = { "part", "tape", "trail", "text", "texticon", "meter", "metervs", "fireball", "lightning", "flare" };
+const char *partnames[] = { "part", "tape", "trail", "text", "texticon", "meter", "metervs", "fireball", "lightning", "flare", "maptext" }; // SauerWUI - custom text particle
+
+// SauerWUI - custom text particle
+enum
+{
+    MAPTEXT_ORIENT_CAMERA = 0,
+    MAPTEXT_ORIENT_LEFT,
+    MAPTEXT_ORIENT_RIGHT,
+    MAPTEXT_ORIENT_BACK,
+    MAPTEXT_ORIENT_FRONT,
+    MAPTEXT_ORIENT_BOTTOM,
+    MAPTEXT_ORIENT_TOP
+};
 
 struct particle
 {
@@ -485,9 +498,36 @@ struct textrenderer : listrenderer
 
     void renderpart(listparticle *p, const vec &o, const vec &d, int blend, int ts)
     {
-        float scale = p->size/80.0f, xoff = -(text_width(p->text) + ((p->flags>>1)&7)*FONTH)/2, yoff = 0;
-
-        matrix4x3 m(camright, vec(camup).neg(), vec(camdir).neg(), o);
+        // SauerWUI - custom text particle
+        /*float scale = p->size/80.0f, xoff = -(text_width(p->text) + ((p->flags>>1)&7)*FONTH)/2, yoff = 0;
+        matrix4x3 m(camright, vec(camup).neg(), vec(camdir).neg(), o);*/
+        float scale = p->size/80.0f,
+              xoff = -(text_width(p->text) + ((p->flags>>1)&7)*FONTH)/2,
+              yoff = 0;
+        int orient = (p->flags>>4)&7;
+        matrix4x3 m;
+        if(orient==MAPTEXT_ORIENT_CAMERA)
+        {
+            m = matrix4x3(camright, vec(camup).neg(), vec(camdir).neg(), o);
+        }
+        else
+        {
+            vec forward, up;
+            switch(orient)
+            {
+                default:
+                case MAPTEXT_ORIENT_LEFT:   forward = vec(-1, 0, 0); up = vec(0, 0, 1); break;
+                case MAPTEXT_ORIENT_RIGHT:  forward = vec(1, 0, 0);  up = vec(0, 0, 1); break;
+                case MAPTEXT_ORIENT_BACK:   forward = vec(0, -1, 0); up = vec(0, 0, 1); break;
+                case MAPTEXT_ORIENT_FRONT:  forward = vec(0, 1, 0);  up = vec(0, 0, 1); break;
+                case MAPTEXT_ORIENT_BOTTOM: forward = vec(0, 0, -1); up = vec(0, 1, 0); break;
+                case MAPTEXT_ORIENT_TOP:    forward = vec(0, 0, 1);  up = vec(0, 1, 0); break;
+            }
+            vec right;
+            right.cross(forward, up).normalize();
+            m = matrix4x3(right, vec(up).neg(), vec(forward).neg(), o);
+        }
+        
         m.scale(scale);
         m.translate(xoff, yoff, 50);
 
@@ -497,6 +537,7 @@ struct textrenderer : listrenderer
     }
 };
 static textrenderer texts(PT_TEXT|PT_LERP);
+static textrenderer maptexts(PT_MAPTEXT|PT_LERP); // SauerWUI - custom text particle
 
 struct texticonrenderer : listrenderer
 {
@@ -925,7 +966,8 @@ static partrenderer *parts[] =
     &texticons,                                                                                    // text icons
     &meters,                                                                                       // meter
     &metervs,                                                                                      // meter vs.
-    &flares                                                                                        // lens flares - must be done last
+    &flares,        // lens flares - must be done last    
+    &maptexts,     // SauerWUI - custom text particle
 };
 
 void finddepthfxranges()
@@ -1179,6 +1221,16 @@ void particle_textcopy(const vec &s, const char *t, int type, int fade, int colo
     particle *p = newparticle(s, vec(0, 0, 1), fade, type, color, size, gravity);
     p->text = newstring(t);
     p->flags = 1;
+}
+
+// SauerWUI - custom text particle
+static void particle_textcopy_oriented(const vec &s, const char *t, int type, int fade, int color, float size, int orient, int gravity = 0)
+{
+    if(!canaddparticles()) return;
+    if(!particletext || camera1->o.dist(s) > maxparticletextdistance) return;
+    particle *p = newparticle(s, vec(0, 0, 1), fade, type, color, size, gravity);
+    p->text = newstring(t);
+    p->flags = 1 | ((orient & 7) << 4);
 }
 
 void particle_texticon(const vec &s, int ix, int iy, float offset, int type, int fade, int color, float size, int gravity)
@@ -1436,6 +1488,23 @@ static void makeparticles(entity &e)
         case 12: // smoke plume <radius> <height> <rgb>
             regularflame(PART_SMOKE, e.o, float(e.attr2)/100.0f, float(e.attr3)/100.0f, colorfromattr(e.attr4), 1, 4.0f, 100.0f, 2000.0f, -20);
             break;
+        // SauerWUI - custom text particle
+        case 14: // map text <id> <size> <rgb> <orient>
+        {
+            defformatstring(varname, "particletex_%d", e.attr2);
+            const char *val = getmapvar(varname);
+            if(val && *val)
+            {
+                char *text = dosafestr(val);
+                if(text && *text)
+                {
+                    float size = e.attr3 ? e.attr3 : 2.0f;
+                    particle_textcopy_oriented(e.o, text, PART_MAPTEXT, 1, colorfromattr(e.attr4), size, clamp(int(e.attr5), 0, 6));
+                }
+                delete[] text;
+            }
+            break;
+        }
         case 32: //lens flares - plain/sparkle/sun/sparklesun <red> <green> <blue>
         case 33:
         case 34:
@@ -1457,6 +1526,7 @@ bool printparticles(extentity &e, char *buf, int len)
     switch(e.attr1)
     {
         case 0: case 4: case 7: case 9: case 10: case 11: case 12: case 13:
+        case 14: // SauerWUI - custom text particle
             nformatstring(buf, len, "%s %d %d %d 0x%.3hX %d", entities::entname(e.type), e.attr1, e.attr2, e.attr3, e.attr4, e.attr5);
             return true;
         case 2: case 3: case 5:

@@ -346,7 +346,8 @@ enum
     PART_TEXT,
     PART_TEXT_ICON,
     PART_METER, PART_METER_VS,
-    PART_LENS_FLARE
+    PART_LENS_FLARE,
+    PART_MAPTEXT // SauerWUI - custom text particle
 };
 
 extern bool canaddparticles();
