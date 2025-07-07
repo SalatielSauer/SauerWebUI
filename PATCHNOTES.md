@@ -1,6 +1,16 @@
 ## 🔍 SauerWebUI Patch Notes
 
-### 02/07/2025 📌
+### 07/07/2025 📌
+- `dumpmmodels <name> <optional texture path>`
+- `dumpmaterials <name>`
+
+  commands to export all materials and mapmodels (with textures) of the current map as a single .obj and .mtl file;
+
+- `particletex_ID` new mapvar-based particle that allows displaying dynamic texts with CubeScript. (`/newent particle 14 <id> <size> <color> <orientation>`).
+
+  <img width="512px" src="https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_5.png">
+
+### 02/07/2025
 - `importobj <file> <size>` now supports material colors (not all colors may be displayed depending on the size parameter you set);
 - to make things easier, the binary can now be downloaded with the updater; just restart the client as soon as an update finishes;
 - new `writeobjuvmap <name> <dump lightmap texture 1/0>` to export a map as a .obj file containing lightmap coordinates;

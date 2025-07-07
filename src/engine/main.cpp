@@ -1269,6 +1269,26 @@ VAR(numcpus, 1, 1, 16);
 // SauerWUI
 SVARP(wui_default, "");
 
+// SauerWUI version string in dd-mm-yyyy format
+_SVAR(sauerwui_version, sauerwui_version, "07-07-2025", IDF_READONLY);
+
+static int sauerwui_compare_version(const char* other)
+{
+    int od = 0, om = 0, oy = 0;
+    int cd = 0, cm = 0, cy = 0;
+    if (sscanf(other, "%d-%d-%d", &od, &om, &oy) != 3) return 0;
+    if (sscanf(sauerwui_version, "%d-%d-%d", &cd, &cm, &cy) != 3) return 0;
+    if (oy < cy) return -1;
+    if (oy > cy) return 1;
+    if (om < cm) return -1;
+    if (om > cm) return 1;
+    if (od < cd) return -1;
+    if (od > cd) return 1;
+    return 0;
+}
+
+ICOMMAND(compareversion, "s", (char* v), intret(sauerwui_compare_version(v)));
+
 int main(int argc, char **argv)
 {
 

@@ -100,8 +100,37 @@ window._create_menu_browser = _create_menu_browser;
 //window.wui.showMenu('main');
 
 window.cubescript(`
+if (=s (getalias "compareversion") "") [
+	sauerwui_version = "02/07/2025" // fallback value, don't change.
+	_packages_version = 1
+] [
+	_packages_version = (compareversion "07-07-2025") // change this instead.
+]
+
 newgui main [guistayopen [
-	guitext "^<rgb:255/100/155>SauerWebUI (28/06/2025)" 0 0.5
+	if (= $_packages_version 0) [
+		guitext (format "^<rgb:255/100/155>SauerWebUI (%1)" $sauerwui_version) 0 0.5
+	] [
+		sleep 5000 [
+			if (= $_packages_version 2) [
+				if (findfile "bin64/sauerwui_update") [
+					_packages_version = 3
+				] [
+					echo "^f8[SauerWUI client updater]: ^f3Something went wrong, could not find downloaded update."
+					_packages_version = 1
+				]
+			]
+		]
+		if (= $_packages_version 3) [
+			guitext "^<rgb:100/255/155>SauerWebUI has been updated but needs to be restarted." 0 0.5
+			guibutton "quit" [ quit ] "exit" 0.5
+		] [
+			guitext (format "^<rgb:255/50/50>SauerWebUI - your %1 outdated. (%2)" (at ["packages are" "client is"] $_packages_version) $sauerwui_version) 0 0.5
+			guibutton "update" [
+				javascript [ window.quickUpdate(); ]
+			] "" 0.5
+		]
+	]
 	guistrut -0.5
 	guialign 1 [
 		guibutton "test WUI" [

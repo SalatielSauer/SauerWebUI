@@ -402,6 +402,35 @@ class GithubUpdater {
     }
 }
 
+window.quickUpdate = () => {
+    let completed = false;
+    window.cefQuery({
+        request: `downloadfile:https://github.com/SalatielSauer/SauerWebUI/raw/main/bin64/sauerwui.exe|../bin64|${Date.now().toString()}`,
+        persistent: true,
+        onSuccess: (r) => {
+            try { var d = JSON.parse(r); } catch (e) { return; }
+            if (d.status === 'progress') {
+                if (!completed) {
+                    console.log(`\f8[SauerWUI client updater]: \f7Downloading: \f2${d.percent.toFixed(1)}%`);
+                    if (d.percent >= 100) {
+                        console.log(`\f8[SauerWUI client updater]: \f0Done, restart the client to see the changes.`);
+                        window.cubescript(`_packages_version = 2`)
+                        completed = true;
+                    }
+                }
+            }
+            if (d.status === 'complete' && !completed) {
+                console.log(`\f8[SauerWUI client updater]: \f0Done, restart the client to see the changes.`);
+                window.cubescript(`_packages_version = 2`)
+                completed = true;
+            }
+        },
+        onFailure: (c, m) => {
+            console.log(`\f8[SauerWUI client updater]: \f3Failed, could not update client. ${m}`);
+        }
+    })
+}
+
 window.githubUpdater = new GithubUpdater();
 window.showGithubUpdater = () => window.githubUpdater.showMenu();
 window.githubUpdater.autoCheckForUpdates();
