@@ -1893,7 +1893,11 @@ void writeobpy(char* name)
         f->printf("newmtl slot%d_lm%d\n", tex, lmindex);
         f->printf("map_Kd %s\n", vslot.slot->sts.empty() ? notexture->name : makerelpath("packages", vslot.slot->sts[0].name));
         defformatstring(texname, "lightmap_%s_%d.png", shortname, lmindex);
-        f->printf("map_LM %s\n\n", texname);
+        f->printf("map_LM %s\n", texname);
+        f->printf("vcolor %s %s %s\n", floatstr(vslot.colorscale.r), floatstr(vslot.colorscale.g), floatstr(vslot.colorscale.b));
+        f->printf("voffset %d %d\n", vslot.offset.x, vslot.offset.y);
+        f->printf("vscale %s\n", floatstr(vslot.scale));
+        f->printf("vrotate %d\n\n", vslot.rotation);
     }
 
     f->printf("# mapvars\n");
