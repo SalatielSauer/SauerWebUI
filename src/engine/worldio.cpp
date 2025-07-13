@@ -1895,6 +1895,15 @@ void writeobpy(char* name)
         defformatstring(texname, "lightmap_%s_%d.png", shortname, lmindex);
         f->printf("map_LM %s\n\n", texname);
     }
+
+    f->printf("# mapvars\n");
+    enumerate(idents, ident, id,
+        {
+            if (id.type == ID_SVAR && id.flags & IDF_OVERRIDE && !(id.flags & IDF_READONLY) && id.flags & IDF_OVERRIDDEN)
+                f->printf("mapvar %s %s\n", escapeid(id), escapestring(*id.storage.s));
+        });
+    f->printf("\n");
+
     delete f;
 
     extern void dumplms();
