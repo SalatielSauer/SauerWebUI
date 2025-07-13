@@ -1834,7 +1834,8 @@ void writeobpy(char* name)
         delete[] vdata;
     }
 
-    vec center(-(bbmax.x + bbmin.x) / 2, -(bbmax.y + bbmin.y) / 2, -bbmin.z);
+    //vec center(-(bbmax.x + bbmin.x) / 2, -(bbmax.y + bbmin.y) / 2, -bbmin.z);
+    vec center(0, 0, 0);
     loopv(verts)
     {
         vec v = verts[i];
