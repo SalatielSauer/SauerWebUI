@@ -1417,7 +1417,7 @@ void writeobj(char *name)
     {
         VSlot &vslot = lookupvslot(usedmtl[i], false);
         f->printf("newmtl slot%d\n", usedmtl[i]);
-        f->printf("map_Kd %s\n", vslot.slot->sts.empty() ? notexture->name : path(makerelpath("packages", vslot.slot->sts[0].name)));
+        f->printf("map_Kd %s\n", vslot.slot->sts.empty() ? notexture->name : path(makerelpath("../packages", vslot.slot->sts[0].name)));
         f->printf("\n");
     } 
     delete f;
@@ -1753,6 +1753,156 @@ void importobj(char* name, float* mscale, int *mtl)
 }
 
 COMMAND(importobj, "sfi");
+
+// SauerWUI - export .obpy file with both texture and lightmap UVs
+void writeobpy(char* name)
+{
+    defformatstring(fname, "%s.obpy", name);
+    stream* f = openfile(path(fname), "w");
+    if (!f) return;
+    f->printf("# obpy file of Cube 2 level with lightmaps & textures\n");
+    f->printf("# obpy blender importer: https://gist.github.com/SalatielSauer/397881f744c69688b644d4efffe2ce25\n\n");
+    vector<vec> verts;
+    vector<vec2> texcoords;
+    vector<vec2> lmcoords;
+    hashtable<vec, int> shareverts(1 << 16);
+    hashtable<vec2, int> sharetc(1 << 16);
+    hashtable<vec2, int> sharelm(1 << 16);
+    hashtable<int, vector<ivec> > mtls(1 << 8);
+    vector<int> usedkeys;
+    vec bbmin(1e16f, 1e16f, 1e16f), bbmax(-1e16f, -1e16f, -1e16f);
+    loopv(valist)
+    {
+        vtxarray& va = *valist[i];
+        ushort* edata = NULL;
+        vertex* vdata = NULL;
+        if (!readva(&va, edata, vdata)) continue;
+        ushort* idx = edata;
+        loopj(va.texs)
+        {
+            elementset& es = va.eslist[j];
+            if (es.lmid < LMID_RESERVED) { idx += es.length[1]; continue; }
+            LightMapTexture& lmtex = lightmaptexs[es.lmid];
+            loopk(es.length[1])
+            {
+                int n = idx[k] - va.voffset;
+                const vertex& v = vdata[n];
+                const vec& pos = v.pos;
+                const vec2& tc1 = v.tc;
+
+                float gx = v.lm.x * (lmtex.w / float(SHRT_MAX));
+                float gy = v.lm.y * (lmtex.h / float(SHRT_MAX));
+                vec2 tc2(0, 1);
+                int lmindex = es.lmid;
+                loopl(lightmaps.length())
+                {
+                    LightMap& lm = lightmaps[l];
+                    if (lm.tex == es.lmid &&
+                        gx >= lm.offsetx && gx < lm.offsetx + LM_PACKW &&
+                        gy >= lm.offsety && gy < lm.offsety + LM_PACKH)
+                    {
+                        tc2.x = (gx - lm.offsetx) / float(LM_PACKW);
+                        tc2.y = 1.0f - ((gy - lm.offsety) / float(LM_PACKH));
+                        lmindex = l;
+                        break;
+                    }
+                }
+
+                int key = (es.texture << 16) | (lmindex & 0xFFFF);
+                vector<ivec>& keys = mtls[key];
+                if (usedkeys.find(key) < 0) usedkeys.add(key);
+
+                ivec& tri = keys.add();
+                tri.x = shareverts.access(pos, verts.length());
+                if (tri.x == verts.length())
+                {
+                    verts.add(pos);
+                    loopl(3)
+                    {
+                        bbmin[l] = min(bbmin[l], pos[l]);
+                        bbmax[l] = max(bbmax[l], pos[l]);
+                    }
+                }
+                tri.y = sharetc.access(tc1, texcoords.length());
+                if (tri.y == texcoords.length()) texcoords.add(tc1);
+                tri.z = sharelm.access(tc2, lmcoords.length());
+                if (tri.z == lmcoords.length()) lmcoords.add(tc2);
+            }
+            idx += es.length[1];
+        }
+        delete[] edata;
+        delete[] vdata;
+    }
+
+    vec center(-(bbmax.x + bbmin.x) / 2, -(bbmax.y + bbmin.y) / 2, -bbmin.z);
+    loopv(verts)
+    {
+        vec v = verts[i];
+        v.add(center);
+        if (v.y != floor(v.y)) f->printf("v %.3f ", -v.y); else f->printf("v %d ", int(-v.y));
+        if (v.z != floor(v.z)) f->printf("%.3f ", v.z); else f->printf("%d ", int(v.z));
+        if (v.x != floor(v.x)) f->printf("%.3f\n", v.x); else f->printf("%d\n", int(v.x));
+    }
+    f->printf("\n");
+    loopv(texcoords)
+    {
+        const vec2& tc = texcoords[i];
+        f->printf("vt %.6f %.6f\n", tc.x, 1 - tc.y);
+    }
+    f->printf("\n");
+    loopv(lmcoords)
+    {
+        const vec2& tc = lmcoords[i];
+        f->printf("vt2 %.6f %.6f\n", tc.x, 1 - tc.y);
+    }
+    f->printf("\n");
+
+    const char* map = game::getclientmap(), * shortname = strrchr(map, '/');
+    if (shortname) shortname++; else shortname = map;
+    usedkeys.sort();
+    loopv(usedkeys)
+    {
+        int key = usedkeys[i];
+        vector<ivec>& keys = mtls[key];
+        if (!keys.length()) continue;
+        int tex = key >> 16, lmindex = key & 0xFFFF;
+        f->printf("g slot%d_lm%d\n", tex, lmindex);
+        f->printf("usemtl slot%d_lm%d\n\n", tex, lmindex);
+        for (int j = 0; j < keys.length(); j += 3)
+        {
+            f->printf("f");
+            loopk(3)
+            {
+                ivec& t = keys[j + 2 - k];
+                f->printf(" %d/%d/%d", t.x + 1, t.y + 1, t.z + 1);
+            }
+            f->printf("\n");
+        }
+        f->printf("\n");
+    }
+
+    f->printf("# materials\n");
+
+    loopv(usedkeys)
+    {
+        int key = usedkeys[i];
+        vector<ivec>& keys = mtls[key];
+        if (!keys.length()) continue;
+        int tex = key >> 16, lmindex = key & 0xFFFF;
+        VSlot& vslot = lookupvslot(tex, false);
+        f->printf("newmtl slot%d_lm%d\n", tex, lmindex);
+        f->printf("map_Kd %s\n", vslot.slot->sts.empty() ? notexture->name : makerelpath("packages", vslot.slot->sts[0].name));
+        defformatstring(texname, "lightmap_%s_%d.png", shortname, lmindex);
+        f->printf("map_LM %s\n\n", texname);
+    }
+    delete f;
+
+    extern void dumplms();
+    dumplms();
+}
+
+COMMAND(writeobpy, "s");
+
 
 #endif
 
