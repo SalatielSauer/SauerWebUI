@@ -1758,7 +1758,7 @@ COMMAND(importobj, "sfi");
 void writeobpy(char* name)
 {
     defformatstring(fname, "%s.obpy", name);
-    stream* f = openfile(path(fname), "w");
+    stream* f = openutf8file(path(fname), "w");
     if (!f) return;
     f->printf("# obpy file of Cube 2 level with lightmaps & textures\n");
     f->printf("# obpy blender importer: https://gist.github.com/SalatielSauer/397881f744c69688b644d4efffe2ce25\n\n");
