@@ -11,13 +11,14 @@ data/*
 packages/models/*
 !packages/models/camera/
 
-
-*.obj
 *.lib
 *.pdb
-
 *.user
 *.suo
 
-src/vs/.vs
-src/vs/Debug64
+
+src/vs/
+
+!src/vs/sauerwui.vcxproj
+!src/vs/sauerwui.vcxproj.filters
+!src/vs/sauerwui.sln
