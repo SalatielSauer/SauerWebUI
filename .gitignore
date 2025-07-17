@@ -1,11 +1,16 @@
 bin64/cef_cache/
 HOME/
-packages/
+packages/*
 data/*
 
 !data/wui/
 !data/default_sp_monsters.cfg
 !data/monsters
+
+!packages/models/
+packages/models/*
+!packages/models/camera/
+
 
 *.obj
 *.lib
