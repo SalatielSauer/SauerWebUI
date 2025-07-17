@@ -17,13 +17,15 @@ namespace game { fpsent* spawnstate(::fpsent* d); void updatepos(fpsent* d); }
 namespace cutscene
 {
     using namespace game;
-    struct frame
-    {
-        int actor;
-        int time;
-        vec pos;
-        float yaw, pitch, roll;
-    };
+        struct frame
+        {
+            int actor;
+            int time;
+            vec pos;
+            float yaw, pitch, roll;
+            int gun;
+            int attack;
+        };
 
     static void applyframe(fpsent* d, const frame& fr, const frame* prev)
     {
@@ -32,6 +34,8 @@ namespace cutscene
         d->pitch = fr.pitch;
         d->roll = fr.roll;
         d->lastupdate = totalmillis;
+        d->gunselect = fr.gun;
+        d->attacking = fr.attack!=0;
 
         if (prev)
         {
@@ -63,6 +67,13 @@ namespace cutscene
         }
         updatephysstate(d);
         game::updatepos(d);
+        if(fr.attack)
+        {
+            vec dir;
+            vecfromyawpitch(d->yaw, d->pitch, 1, 0, dir);
+            vec target = vec(dir).mul(1024).add(d->o);
+            game::shoot(d, target);
+        }
     }
 
     static vector<frame> cameraframes;
@@ -82,6 +93,9 @@ namespace cutscene
     static bool havecamera = false;
     VARP(cutscenecamdebug, 0, 1, 1);
     FVARP(cutscenecamdebugsize, 0.25f, 2.0f, 4.0f);
+    VARP(cutscenecamdebugpath, 0, 0, 1);
+    VARP(cutscenecamdebugpathstep, 1, 1, 100);
+    _SVAR(cutscenecurrentfile, cutscenecurrentfile, "", IDF_READONLY);
     static int pausestart = 0;
     static stream* outfile = NULL;
     static string filename;
@@ -96,7 +110,10 @@ namespace cutscene
 
     static void writeframe(stream* f, const frame& fr)
     {
-        f->printf("%d %d %f %f %f %f %f %f\n", fr.actor, fr.time, fr.pos.x, fr.pos.y, fr.pos.z, fr.yaw, fr.pitch, fr.roll);
+        if(fr.actor < 0)
+            f->printf("%d %d %f %f %f %f %f %f\n", fr.actor, fr.time, fr.pos.x, fr.pos.y, fr.pos.z, fr.yaw, fr.pitch, fr.roll);
+        else
+            f->printf("%d %d %f %f %f %f %f %f %d %d\n", fr.actor, fr.time, fr.pos.x, fr.pos.y, fr.pos.z, fr.yaw, fr.pitch, fr.roll, fr.gun, fr.attack);
     }
 
     static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor)
@@ -121,13 +138,17 @@ namespace cutscene
             }
             frame fr;
             int a = -1;
-            if (sscanf(line, "%d %d %f %f %f %f %f %f", &a, &fr.time, &fr.pos.x, &fr.pos.y, &fr.pos.z, &fr.yaw, &fr.pitch, &fr.roll) == 8)
+            int num = sscanf(line, "%d %d %f %f %f %f %f %f %d %d", &a, &fr.time, &fr.pos.x, &fr.pos.y, &fr.pos.z, &fr.yaw, &fr.pitch, &fr.roll, &fr.gun, &fr.attack);
+            if (num >= 8)
             {
                 fr.actor = a;
+                if(num < 10) { fr.gun = 0; fr.attack = 0; }
             }
             else if (sscanf(line, "%d %f %f %f %f %f %f", &fr.time, &fr.pos.x, &fr.pos.y, &fr.pos.z, &fr.yaw, &fr.pitch, &fr.roll) == 7)
             {
                 fr.actor = -1;
+                fr.gun = 0;
+                fr.attack = 0;
             }
             else { line = next; if (!line) break; continue; }
 
@@ -176,6 +197,7 @@ namespace cutscene
         actorframes.move(acts);
         actormodels.move(models);
         numactors = maxactor + 1;
+        while (actorframes.length() < numactors) actorframes.add();
         actors.shrink(0);
         actorindex.shrink(0);
         loopi(numactors)
@@ -190,6 +212,8 @@ namespace cutscene
             actorindex.add(0);
         }
         copystring(filename, formatfile(file));
+        DELETEA(cutscenecurrentfile);
+        cutscenecurrentfile = newstring(filename);
         startms = max(startms, 0);
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
         loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
@@ -234,6 +258,8 @@ namespace cutscene
         }
         loopv(actormodels) outfile->printf("model %d %d\n", i, actormodels[i]);
         copystring(filename, formatfile(file));
+        DELETEA(cutscenecurrentfile);
+        cutscenecurrentfile = newstring(filename);
         starttime = lastmillis;
         camindex = 0;
         playing = false;
@@ -285,6 +311,8 @@ namespace cutscene
         }
 
         copystring(filename, formatfile(file));
+        DELETEA(cutscenecurrentfile);
+        cutscenecurrentfile = newstring(filename);
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
         loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
         endtime = lasttime;
@@ -302,7 +330,7 @@ namespace cutscene
             d->state = CS_ALIVE;
             d->lastupdate = totalmillis;
             d->playermodel = game::player1->playermodel;
-            game::players.add(d);
+            //game::players.add(d);
             actors.add(d);
             actormodels.add(game::player1->playermodel);
         }
@@ -339,6 +367,8 @@ namespace cutscene
             fr.yaw = camera1->yaw;
             fr.pitch = camera1->pitch;
             fr.roll = camera1->roll;
+            fr.gun = 0;
+            fr.attack = 0;
             cameraframes.add(fr);
             if (outfile) writeframe(outfile, fr);
 
@@ -349,12 +379,14 @@ namespace cutscene
                 fr.yaw = game::player1->yaw;
                 fr.pitch = game::player1->pitch;
                 fr.roll = game::player1->roll;
+                fr.gun = game::player1->gunselect;
+                fr.attack = game::player1->attacking ? 1 : 0;
                 while (actorframes.length() <= curactor) actorframes.add();
                 actorframes[curactor].add(fr);
                 if (outfile) writeframe(outfile, fr);
             }
         }
-        else showcameramodel = false;
+        //else showcameramodel = false;
         if (playing && !paused)
         {
             int playtime = lastmillis - starttime;
@@ -381,10 +413,13 @@ namespace cutscene
                     frame& fr = actorframes[i][actorindex[i]];
                     frame* prev = actorindex[i] > 0 ? &actorframes[i][actorindex[i] - 1] : NULL;
                     fpsent* d = actors[i];
-                    applyframe(d, fr, prev);
+                    //applyframe(d, fr, prev);
+                    if (!(recording && i == curactor))
+                        applyframe(d, fr, prev);
                 }
             }
-            showcameramodel = !usecamera && !recording;
+            //showcameramodel = !usecamera && !recording;
+            showcameramodel = !usecamera && !(recording && curactor < 0);
         }
         else if (paused)
         {
@@ -395,6 +430,7 @@ namespace cutscene
                 else d->lastupdate = totalmillis;
             }
         }
+        else showcameramodel = false;
     }
 
     void pause()
@@ -413,6 +449,8 @@ namespace cutscene
                 fr.yaw = actors[i]->yaw;
                 fr.pitch = actors[i]->pitch;
                 fr.roll = actors[i]->roll;
+                fr.gun = actors[i]->gunselect;
+                fr.attack = actors[i]->attacking ? 1 : 0;
                 pauseframes.add(fr);
             }
             paused = true;
@@ -442,6 +480,7 @@ namespace cutscene
         curactor = -1;
         loopv(actors)
         {
+            game::removeweapons(actors[i]);
             game::players.removeobj(actors[i]);
             delete actors[i];
         }
@@ -449,6 +488,9 @@ namespace cutscene
         actorindex.shrink(0);
         detachedcamera = false;
         conoutf(CON_DEBUG, "cutscene stopped");
+        filename[0] = '\0';
+        DELETEA(cutscenecurrentfile);
+        cutscenecurrentfile = newstring("");
     }
 
     void load(const char* file)
@@ -510,6 +552,42 @@ namespace cutscene
         while (camindex < cameraframes.length() && cameraframes[camindex].time < millis) camindex++;
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < millis) actorindex[i]++;
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
+    }
+
+    void setframe(int index)
+    {
+        if (!isactive()) return;
+        if (index < 0) index = 0;
+        int millis = 0;
+        if (!cameraframes.empty())
+        {
+            index = min(index, cameraframes.length() - 1);
+            millis = cameraframes[index].time;
+        }
+        else
+        {
+            loopi(numactors) if (actorframes[i].length())
+            {
+                int idx = clamp(index, 0, actorframes[i].length() - 1);
+                millis = max(millis, actorframes[i][idx].time);
+            }
+        }
+        settime(millis);
+        conoutf(CON_DEBUG, "cutscene frame set to %d", index);
+    }
+
+    void rendercamerapath()
+    {
+        if (!cutscenecamdebugpath || cameraframes.length() < 2) return;
+        int step = max(cutscenecamdebugpathstep, 1);
+        int cur = playing || recording ? lastmillis - starttime : INT_MIN;
+        for (int i = 0; i < cameraframes.length() - 1; i += step)
+        {
+            const frame& a = cameraframes[i];
+            const frame& b = cameraframes[min(i + step, cameraframes.length() - 1)];
+            int color = a.time >= cur ? 0xFFFF00 : 0x222222;
+            particle_flare(a.pos, b.pos, 1, PART_STREAK, color);
+        }
     }
 
     void rendercamera()

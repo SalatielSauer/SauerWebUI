@@ -2224,6 +2224,7 @@ namespace game
     ICOMMAND(cutscenerecordload, "s", (char *f), cutscene::load(f));
     ICOMMAND(cutscenerecordrestart, "", (), cutscene::restart());
     ICOMMAND(cutscenerecordsettime, "s", (char *t), cutscene::settime(parsetime(t)));
+    ICOMMAND(cutscenerecordsetframe, "i", (int* f), cutscene::setframe(*f));
 
 }
 

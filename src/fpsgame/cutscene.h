@@ -33,6 +33,12 @@ namespace cutscene
     // set the current time position
     void settime(int millis);
 
+    // set the current frame index
+    void setframe(int index);
+
+    // draw the recorded camera path
+    void rendercamerapath();
+
     // render camera model if enabled
     void rendercamera();
 

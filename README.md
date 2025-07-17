@@ -65,6 +65,7 @@ It won't work if you install it side by side with a P1xbraten installation (reas
   - [`writemmobpy <name>`](#writemmobpy-name)
   - [`loadmonster <config>`](#loadmonster-config)
   - [`clearmonsters`](#clearmonsters)
+
   - <details>
 	<summary>Monster Commands</summary>
 
@@ -88,6 +89,25 @@ It won't work if you install it side by side with a P1xbraten installation (reas
 	</details>
 
   - [`Cutscene Playback`](#cutscene-playback)
+	<details>
+	<summary>Cutscene Commands</summary>
+
+	- [`playcutsceneat <file> <start> <end>`](#playcutsceneat-file-start-end)
+	- [`cutsceneplaybackstart <file> <start> <end>`](#cutsceneplaybackstart-file-start-end)
+	- [`cutscenerecordstart <file>`](#cutscenerecordstart-file)
+	- [`cutscenerecordover <file>`](#cutscenerecordover-file)
+	- [`cutscenerecordpause`](#cutscenerecordpause)
+	- [`cutscenerecordend`](#cutscenerecordend)
+	- [`cutscenerecordload <file>`](#cutscenerecordload-file)
+	- [`cutscenerecordrestart`](#cutscenerecordrestart)
+	- [`cutscenerecordsettime <minute:second>`](#cutscenerecordsettime-minute-second)
+	- [`cutscenerecordsettime <frame>`](#cutscenerecordsettime-frame)
+	- [`cutscenecamdebug <1/0>`](#cutscenecamdebug-10)
+	- [`cutscenecamdebugsize <0.25/4.0>`](#cutscenecamdebugsize-02540)
+	- [`cutscenecamdebugpath <1/0>`](#cutscenecamdebugpath-10)
+	- [`cutscenecamdebugpathstep <1/100>`](#cutscenecamdebugpathstep-1100)
+	- [`cutscenecurrentfile`](#cutscenecurrentfile)
+	</details>
 
 ## WUI
 
@@ -465,6 +485,23 @@ enum. Values are:
 	- ### `cutscenerecordsettime <minute:second>`
 		Seeks to the given position in the cutscene.
 
+	- ### `cutscenerecordsetframe <frame>`
+		Seeks to the given frame in the cutscene.
+
+	- ### `cutscenecamdebug <1/0>`
+		Displays the current camera feed in the upper right corner.
+
+	- ### `cutscenecamdebugsize <0.25/4.0>`
+		Sets the size of the camera feed preview.
+
+	- ### `cutscenecamdebugpath <1/0>`
+		Displays the path of the recorded camera in the current cutscene.
+
+	- ### `cutscenecamdebugpathstep <1/100>`
+		Sets the distance between the visualization segments of the camera path.
+	
+	- ### `cutscenecurrentfile`
+		Returns current cutscene file name.
 <hr>
 
 ### Visual Studio Code Syntax Highlighting for CubeScript + JavaScript

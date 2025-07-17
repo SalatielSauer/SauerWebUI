@@ -356,6 +356,7 @@ namespace game
         renderbouncers();
         renderprojectiles();
 
+        cutscene::rendercamerapath(); // SauerWUI - cutscene playback
         cutscene::rendercamera(); // SauerWUI - cutscene playback
 
         if(cmode) cmode->rendergame();
