@@ -1,4 +1,5 @@
 #include "game.h"
+#include "cutscene.h"  // SauerWUI - cutscene playback
 
 struct spawninfo { const extentity *e; float weight; };
 extern float gatherspawninfos(dynent *d, int tag, vector<spawninfo> &spawninfos);
@@ -79,7 +80,11 @@ namespace game
 
     void changedplayermodel()
     {
-        if(player1->clientnum < 0) player1->playermodel = playermodel;
+        // SauerWUI - cutscene playback
+        //if(player1->clientnum < 0) player1->playermodel = playermodel;
+        if (player1->clientnum >= 0) switchplayermodel(playermodel);
+        else player1->playermodel = playermodel;
+
         if(player1->ragdoll) cleanragdoll(player1);
         loopv(ragdolls) 
         {
@@ -309,7 +314,11 @@ namespace game
         loopv(players)
         {
             fpsent *d = players[i];
-            if(d == player1 || d->state==CS_SPECTATOR || d->state==CS_SPAWNING || d->lifesequence < 0 || d == exclude || (d->state==CS_DEAD && hidedead)) continue;
+
+            // SauerWUI - cutscene playback
+            //if(d == player1 || d->state==CS_SPECTATOR || d->state==CS_SPAWNING || d->lifesequence < 0 || d == exclude || (d->state==CS_DEAD && hidedead)) continue;
+            if (d == player1 || d->state == CS_SPECTATOR || d->state == CS_SPAWNING || d->lifesequence < 0 || d == exclude || (d->state == CS_DEAD && hidedead) || cutscene::isrecordingactor(d)) continue;
+            
             int team = 0;
             if(teamskins || m_teammode) team = isteam(player1->team, d->team) ? 1 : 2;
             renderplayer(d, getplayermodelinfo(d), team, 1, mainpass);
@@ -346,6 +355,9 @@ namespace game
         entities::renderentities();
         renderbouncers();
         renderprojectiles();
+
+        cutscene::rendercamera(); // SauerWUI - cutscene playback
+
         if(cmode) cmode->rendergame();
 
 #if 0

@@ -1,4 +1,5 @@
 #include "game.h"
+#include "cutscene.h" // SauerWUI - cutscene playback
 
 namespace game
 {
@@ -2200,5 +2201,29 @@ namespace game
         player1->resetinterp();
     }
     COMMAND(gotosel, "");
+
+    // SauerWUI - cutscene playback
+    static int parsetime(const char *t)
+    {
+        int m = 0, s = 0;
+        if(sscanf(t, "%d:%d", &m, &s) < 2) { m = 0; s = atoi(t); }
+        return (m*60 + s)*1000;
+    }
+
+    void playcutsceneat(const char *file, const char *from, const char *to)
+    {
+        cutscene::play(file, parsetime(from), parsetime(to));
+    }
+
+    ICOMMAND(playcutsceneat, "sss", (char *f, char *s, char *e), playcutsceneat(f, s, e));
+    ICOMMAND(cutsceneplaybackstart, "sss", (char* f, char* s, char* e), cutscene::playbackstart(f, parsetime(s), parsetime(e)));
+    ICOMMAND(cutscenerecordstart, "s", (char *f), cutscene::recordstart(f));
+    ICOMMAND(cutscenerecordover, "s", (char* f), cutscene::recordover(f));
+    ICOMMAND(cutscenerecordpause, "", (), cutscene::pause());
+    ICOMMAND(cutscenerecordend, "", (), cutscene::stop());
+    ICOMMAND(cutscenerecordload, "s", (char *f), cutscene::load(f));
+    ICOMMAND(cutscenerecordrestart, "", (), cutscene::restart());
+    ICOMMAND(cutscenerecordsettime, "s", (char *t), cutscene::settime(parsetime(t)));
+
 }
 

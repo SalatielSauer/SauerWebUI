@@ -190,6 +190,7 @@
     <ClCompile Include="..\engine\worldio.cpp" />
     <ClCompile Include="..\fpsgame\ai.cpp" />
     <ClCompile Include="..\fpsgame\client.cpp" />
+    <ClCompile Include="..\fpsgame\cutscene.cpp" />
     <ClCompile Include="..\fpsgame\entities.cpp" />
     <ClCompile Include="..\fpsgame\fps.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -246,6 +247,7 @@
     <ClInclude Include="..\fpsgame\capture.h" />
     <ClInclude Include="..\fpsgame\collect.h" />
     <ClInclude Include="..\fpsgame\ctf.h" />
+    <ClInclude Include="..\fpsgame\cutscene.h" />
     <ClInclude Include="..\fpsgame\extinfo.h" />
     <ClInclude Include="..\fpsgame\game.h" />
     <ClInclude Include="..\shared\command.h" />

@@ -61,6 +61,8 @@ It won't work if you install it side by side with a P1xbraten installation (reas
   - [`writeobjuvmap <name> <dump lightmap texture 1/0>`](#writeobjuvmap-name-dump-lightmap-texture-10)
   - [`dumpmmodels <name> <optional texture path>`](#dumpmmodels-name-optional-texture-path)
   - [`dumpmaterials <name>`](#dumpmaterials-name)
+  - [`writeobpy <name>`](#writeobpy-name)
+  - [`writemmobpy <name>`](#writemmobpy-name)
   - [`loadmonster <config>`](#loadmonster-config)
   - [`clearmonsters`](#clearmonsters)
   - <details>
@@ -84,6 +86,8 @@ It won't work if you install it side by side with a P1xbraten installation (reas
 	- [`monsterpuppet <1/0>`](#monsterpuppet-10)
 	- [`level_monsterai = [command]`](#level_monsterai--command)
 	</details>
+
+  - [`Cutscene Playback`](#cutscene-playback)
 
 ## WUI
 
@@ -313,6 +317,12 @@ There are some experimental files in the `data/wui` folder, some of which don’
 - ### `dumpmaterials <name>`
 	Exports all materials of the current map as a single .obj, each with a different color.
 
+- ### `writeobpy`
+	Similar to `writeobjuvmap`, but converts the map to a custom format preserving the skybox, mapvars, textures, and lightmaps. It can then be imported into Blender using the [OBPY Importer addon](https://gist.github.com/SalatielSauer/397881f744c69688b644d4efffe2ce25).
+
+- ### `writemmobpy <name>`
+	Similar to `dumpmmodels`, but exports all mapmodels of the current map as a single [.obpy](https://gist.github.com/SalatielSauer/397881f744c69688b644d4efffe2ce25).
+
 
 <details>
   <summary>how to process lightmaps using GIMP</summary>
@@ -420,6 +430,40 @@ enum. Values are:
 	```
 
 </details>
+
+- ### `Cutscene Playback`
+	SauerWUI has an experimental recording system that resembles demos, but with more freedom of control over the camera and actors.
+
+	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_cutscenes1.png)
+
+	Cutscenes are saved and read from .ctscn files (which are just plain text).
+
+	- ### `playcutsceneat <file> <start> <end>`
+		Plays a cutscene from `<start>` to `<end>` (in `minute:second` format) and restores control afterward.
+
+	- ### `cutsceneplaybackstart <file> <start> <end>`
+		Like `playcutsceneat` but leaves the camera free so you can move while actors play back.
+
+	- ### `cutscenerecordstart <file>`
+		Starts recording a cutscene to `<file>`. If you are in spectator mode, camera motion is also recorded.
+
+	- ### `cutscenerecordover <file>`
+		Loads `<file>` and records new frames alongside the existing cutscene. Use it to record multiple actors.
+
+	- ### `cutscenerecordpause`
+		Toggles pause for the current cutscene. You can still move the camera or actors when paused.
+
+	- ### `cutscenerecordend`
+		Finishes the current recording and closes the file.
+
+	- ### `cutscenerecordload <file>`
+		Loads another cutscene and appends its frames to the current session.
+
+	- ### `cutscenerecordrestart`
+		Restarts playback or recording from the beginning.
+
+	- ### `cutscenerecordsettime <minute:second>`
+		Seeks to the given position in the cutscene.
 
 <hr>
 

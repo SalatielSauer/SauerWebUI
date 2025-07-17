@@ -5,6 +5,7 @@
 
 #include "engine.h"
 #include "mpr.h"
+#include "cutscene.h" // SauerWUI - cutscene playback
 
 const int MAXCLIPPLANES = 1024;
 static clipplanes clipcache[MAXCLIPPLANES];
@@ -660,6 +661,8 @@ static inline bool plcollide(physent *d, const vec &dir, physent *o)
 
 static inline bool plcollide(physent *d, const vec &dir, physent *o)
 {
+    if (cutscene::isrecordingactor(o)) return false; // SauerWUI - cutscene playback
+
     switch(d->collidetype)
     {
         case COLLIDE_ELLIPSE:

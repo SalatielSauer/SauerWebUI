@@ -1,4 +1,5 @@
 #include "game.h"
+#include "cutscene.h" // SauerWUI - cutscene playback
 
 namespace game
 {
@@ -279,6 +280,8 @@ namespace game
             }
         }
         if(player1->clientnum>=0) c2sinfo();   // do this last, to reduce the effective frame lag
+
+        cutscene::update(curtime); // SauerWUI - cutscene playback
     }
 
     float proximityscore(float x, float lower, float upper)
@@ -1096,6 +1099,8 @@ namespace game
             if(gameclock) drawgameclock(w, h);
             if(hudscore) drawhudscore(w, h);
         }
+
+        cutscene::rendercamerafeed(); // SauerWUI - cutscene playback
     }
 
     int clipconsole(int w, int h)

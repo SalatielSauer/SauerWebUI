@@ -195,6 +195,9 @@
     <ClCompile Include="..\shared\zip.cpp">
       <Filter>shared</Filter>
     </ClCompile>
+    <ClCompile Include="..\fpsgame\cutscene.cpp">
+      <Filter>fpsgame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\engine\animmodel.h">
@@ -319,6 +322,9 @@
     </ClInclude>
     <ClInclude Include="..\shared\tools.h">
       <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="..\fpsgame\cutscene.h">
+      <Filter>fpsgame</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
