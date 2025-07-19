@@ -53,6 +53,9 @@ namespace cutscene
 
     // true when the entity is the actor being recorded
     bool isrecordingactor(physent* d);
+
+    // return the number of frames currently loaded
+    int frameslen();
 }
 
 #endif // CUTSCENE_H

@@ -96,9 +96,17 @@ namespace cutscene
     VARP(cutscenecamdebugpath, 0, 0, 1);
     VARP(cutscenecamdebugpathstep, 1, 1, 100);
     _SVAR(cutscenecurrentfile, cutscenecurrentfile, "", IDF_READONLY);
+    _VAR(cutsceneframeslen, cutsceneframeslen, 0, 0, INT_MAX, IDF_READONLY);
     static int pausestart = 0;
     static stream* outfile = NULL;
     static string filename;
+
+    static void updateframeslen()
+    {
+        int len = cameraframes.length();
+        loopv(actorframes) len += actorframes[i].length();
+        cutsceneframeslen = len;
+    }
 
     static char* formatfile(const char* name)
     {
@@ -211,6 +219,7 @@ namespace cutscene
             actors.add(d);
             actorindex.add(0);
         }
+        updateframeslen();
         copystring(filename, formatfile(file));
         DELETEA(cutscenecurrentfile);
         cutscenecurrentfile = newstring(filename);
@@ -260,6 +269,7 @@ namespace cutscene
         copystring(filename, formatfile(file));
         DELETEA(cutscenecurrentfile);
         cutscenecurrentfile = newstring(filename);
+        updateframeslen();
         starttime = lastmillis;
         camindex = 0;
         playing = false;
@@ -335,6 +345,8 @@ namespace cutscene
             actormodels.add(game::player1->playermodel);
         }
 
+        updateframeslen();
+
         outfile = openfile(path(formatfile(file), true), "w");
         if (!outfile)
         {
@@ -385,6 +397,7 @@ namespace cutscene
                 actorframes[curactor].add(fr);
                 if (outfile) writeframe(outfile, fr);
             }
+            updateframeslen();
         }
         //else showcameramodel = false;
         if (playing && !paused)
@@ -491,6 +504,7 @@ namespace cutscene
         filename[0] = '\0';
         DELETEA(cutscenecurrentfile);
         cutscenecurrentfile = newstring("");
+        updateframeslen();
     }
 
     void load(const char* file)
@@ -531,6 +545,7 @@ namespace cutscene
             }
         }
         loopi(models.length()) if (i < actormodels.length()) actormodels[i] = models[i];
+        updateframeslen();
         conoutf(CON_DEBUG, "loaded cutscene %s", file);
     }
 
