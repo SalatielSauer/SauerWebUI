@@ -45,6 +45,13 @@ namespace cutscene
     // render camera feed overlay when debugging
     void rendercamerafeed();
 
+    // store current camera settings for later interpolation
+    void lerpcamfrom();
+
+    // interpolate from the stored camera settings to the current ones
+    // over the specified time in milliseconds
+    void lerpcamto(int millis);
+
     // returns true if playing or recording
     bool isactive();
 

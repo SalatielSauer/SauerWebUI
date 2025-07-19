@@ -2226,5 +2226,8 @@ namespace game
     ICOMMAND(cutscenerecordsettime, "s", (char *t), cutscene::settime(parsetime(t)));
     ICOMMAND(cutscenerecordsetframe, "i", (int* f), cutscene::setframe(*f));
 
+    ICOMMAND(cutscenelerpcamfrom, "", (), cutscene::lerpcamfrom());
+    ICOMMAND(cutscenelerpcamto, "i", (int* m), cutscene::lerpcamto(*m));
+
 }
 

@@ -91,6 +91,8 @@ namespace cutscene
     static bool showcameramodel = false;
     static frame cameraprev;
     static bool havecamera = false;
+    static frame lerpcamstart;
+    static bool havelerpcamstart = false;
     VARP(cutscenecamdebug, 0, 1, 1);
     FVARP(cutscenecamdebugsize, 0.25f, 2.0f, 4.0f);
     VARP(cutscenecamdebugpath, 0, 0, 1);
@@ -723,4 +725,56 @@ namespace cutscene
 
         showcameramodel = oldmodel;
     }
+
+    void lerpcamfrom()
+    {
+        lerpcamstart.actor = -1;
+        lerpcamstart.time = cameraframes.empty() ? 0 : cameraframes.last().time;
+        lerpcamstart.pos = camera1->o;
+        lerpcamstart.yaw = camera1->yaw;
+        lerpcamstart.pitch = camera1->pitch;
+        lerpcamstart.roll = camera1->roll;
+        lerpcamstart.gun = 0;
+        lerpcamstart.attack = 0;
+        havelerpcamstart = true;
+    }
+
+    void lerpcamto(int millis)
+    {
+        if (!havelerpcamstart) return;
+        int start = lerpcamstart.time;
+        frame target;
+        target.actor = -1;
+        target.time = start + max(millis, 0);
+        target.pos = camera1->o;
+        target.yaw = camera1->yaw;
+        target.pitch = camera1->pitch;
+        target.roll = camera1->roll;
+        target.gun = 0;
+        target.attack = 0;
+
+        const int step = 50;
+        cameraframes.add(lerpcamstart);
+        if (outfile) writeframe(outfile, lerpcamstart);
+        for (int t = step; t < millis; t += step)
+        {
+            float k = float(t) / float(millis);
+            frame fr;
+            fr.actor = -1;
+            fr.time = start + t;
+            fr.pos = vec(lerpcamstart.pos).lerp(target.pos, k);
+            fr.yaw = lerpcamstart.yaw + (target.yaw - lerpcamstart.yaw) * k;
+            fr.pitch = lerpcamstart.pitch + (target.pitch - lerpcamstart.pitch) * k;
+            fr.roll = lerpcamstart.roll + (target.roll - lerpcamstart.roll) * k;
+            fr.gun = 0;
+            fr.attack = 0;
+            cameraframes.add(fr);
+            if (outfile) writeframe(outfile, fr);
+        }
+        cameraframes.add(target);
+        if (outfile) writeframe(outfile, target);
+        havelerpcamstart = false;
+        updateframeslen();
+    }
+
 }
