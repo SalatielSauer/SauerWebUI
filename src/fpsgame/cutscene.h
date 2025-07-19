@@ -36,6 +36,9 @@ namespace cutscene
     // set the current frame index
     void setframe(int index);
 
+    // remove camera frames (all=0, past=-1, future=1)
+    void clearcam(int dir = 0);
+
     // draw the recorded camera path
     void rendercamerapath();
 

@@ -593,6 +593,33 @@ namespace cutscene
         conoutf(CON_DEBUG, "cutscene frame set to %d", index);
     }
 
+    void clearcam(int dir)
+    {
+        if (cameraframes.empty()) return;
+
+        int curms = paused ? pausestart - starttime : lastmillis - starttime;
+
+        if (!dir)
+        {
+            cameraframes.shrink(0);
+        }
+        else
+        {
+            loopvrev(cameraframes)
+            {
+                if ((dir < 0 && cameraframes[i].time <= curms) ||
+                    (dir > 0 && cameraframes[i].time >= curms))
+                    cameraframes.remove(i);
+            }
+        }
+
+        camindex = 0;
+        while (camindex < cameraframes.length() && cameraframes[camindex].time < curms) camindex++;
+        updateframeslen();
+
+        conoutf(CON_DEBUG, "camera frames cleared");
+    }
+
     void rendercamerapath()
     {
         if (!cutscenecamdebugpath || cameraframes.length() < 2) return;
