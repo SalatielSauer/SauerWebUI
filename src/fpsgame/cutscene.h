@@ -70,6 +70,9 @@ namespace cutscene
     // return the id for the given actor (-1 if not an actor)
     int actorid(physent* d);
 
+    // true if a cutscene is playing using the camera
+    bool playingcamera();
+
     // return the number of frames currently loaded
     int frameslen();
 

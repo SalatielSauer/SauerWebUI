@@ -93,6 +93,8 @@ namespace cutscene
     static bool havecamera = false;
     static frame lerpcamstart;
     static bool havelerpcamstart = false;
+    static int oldplayerstate = CS_ALIVE;
+    static bool changedstate = false;
     VARP(cutscenecamdebug, 0, 1, 1);
     FVARP(cutscenecamdebugsize, 0.25f, 2.0f, 4.0f);
     VARP(cutscenecamdebugpath, 0, 0, 1);
@@ -284,6 +286,15 @@ namespace cutscene
         paused = false;
         usecamera = camera;
         detachedcamera = camera;
+        if(camera)
+        {
+            oldplayerstate = game::player1->state;
+            if(game::player1->state != CS_SPECTATOR)
+            {
+                game::player1->state = CS_SPECTATOR;
+                changedstate = true;
+            }
+        }
         conoutf(CON_DEBUG, "play cutscene %s from %d to %d", file, startms, endtime);
     }
 
@@ -547,6 +558,11 @@ namespace cutscene
         actors.shrink(0);
         actorindex.shrink(0);
         detachedcamera = false;
+        if(changedstate)
+        {
+            game::player1->state = oldplayerstate;
+            changedstate = false;
+        }
         conoutf(CON_DEBUG, "cutscene stopped");
         filename[0] = '\0';
         DELETEA(cutscenecurrentfile);
@@ -680,6 +696,7 @@ namespace cutscene
 
     void rendercamerapath()
     {
+        if(playing && usecamera) return;
         if (!cutscenecamdebugpath || cameraframes.length() < 2) return;
         int step = max(cutscenecamdebugpathstep, 1);
         int cur = playing || recording ? lastmillis - starttime : INT_MIN;
@@ -769,6 +786,7 @@ namespace cutscene
 
     void rendercamerafeed()
     {
+        if(playing && usecamera) return;
         if (!cutscenecamdebug || !havecamera || !isactive()) return;
         int size = int(min(screenw, screenh) / 4 * cutscenecamdebugsize);
         size = clamp(size, 1, min(screenw, screenh));
@@ -865,6 +883,11 @@ namespace cutscene
     int actorid(physent* d)
     {
         return actors.find((fpsent*)d);
+    }
+
+    bool playingcamera()
+    {
+        return playing && usecamera;
     }
 
 }

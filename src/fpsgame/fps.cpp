@@ -1070,7 +1070,9 @@ namespace game
         hudmatrix.scale(h/1800.0f, h/1800.0f, 1);
         flushhudmatrix();
 
-        if(player1->state==CS_SPECTATOR)
+        // SauerWUI - cutscene playback
+        //if(player1->state==CS_SPECTATOR)
+        if (player1->state == CS_SPECTATOR && !cutscene::playingcamera())
         {
             int pw, ph, tw, th, fw, fh;
             text_bounds("  ", pw, ph);
