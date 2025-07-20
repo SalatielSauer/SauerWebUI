@@ -332,7 +332,17 @@ namespace game
                 continue;
             }
 
-            copystring(d->info, colorname(d));
+            // SauerWUI - cutscene playback
+            int aid = cutscene::actorid(d);
+            if (aid >= 0)
+            {
+                if (!cutscene::playingcamera())
+                    formatstring(d->info, "%d", aid);
+                else d->info[0] = '\0';
+            }
+            else copystring(d->info, colorname(d));
+            //copystring(d->info, colorname(d));
+
             if(d->state!=CS_DEAD)
             {
                 float offset = renderstatusbars(d, team);

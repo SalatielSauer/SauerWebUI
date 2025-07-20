@@ -126,6 +126,21 @@ namespace cutscene
             f->printf("%d %d %f %f %f %f %f %f %d %d\n", fr.actor, fr.time, fr.pos.x, fr.pos.y, fr.pos.z, fr.yaw, fr.pitch, fr.roll, fr.gun, fr.attack);
     }
 
+    static void savecurrent()
+    {
+        if (!cutscenecurrentfile[0]) return;
+        stream* f = openfile(path(cutscenecurrentfile, true), "w");
+        if (!f)
+        {
+            conoutf(CON_ERROR, "cannot write %s", cutscenecurrentfile);
+            return;
+        }
+        loopv(actormodels) f->printf("model %d %d\n", i, actormodels[i]);
+        loopv(cameraframes) writeframe(f, cameraframes[i]);
+        loopv(actorframes) loopvj(actorframes[i]) writeframe(f, actorframes[i][j]);
+        delete f;
+    }
+
     static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor)
     {
         size_t len = 0;
@@ -650,6 +665,19 @@ namespace cutscene
         conoutf(CON_DEBUG, "camera frames cleared");
     }
 
+    void clearactor(int id)
+    {
+        if (!actorframes.inrange(id) || !actors.inrange(id)) return;
+        actorframes[id].shrink(0);
+        if (actorindex.inrange(id)) actorindex[id] = 0;
+        int idx = game::players.find(actors[id]);
+        if (idx >= 0) game::players.remove(idx);
+        game::removeweapons(actors[id]);
+        updateframeslen();
+        savecurrent();
+        conoutf(CON_DEBUG, "actor %d frames cleared", id);
+    }
+
     void rendercamerapath()
     {
         if (!cutscenecamdebugpath || cameraframes.length() < 2) return;
@@ -832,6 +860,11 @@ namespace cutscene
         if (outfile) writeframe(outfile, target);
         havelerpcamstart = false;
         updateframeslen();
+    }
+
+    int actorid(physent* d)
+    {
+        return actors.find((fpsent*)d);
     }
 
 }

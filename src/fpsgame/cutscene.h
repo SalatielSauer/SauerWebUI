@@ -39,6 +39,9 @@ namespace cutscene
     // remove camera frames (all=0, past=-1, future=1)
     void clearcam(int dir = 0);
 
+    // remove actor frames for a specific actor
+    void clearactor(int id);
+
     // draw the recorded camera path
     void rendercamerapath();
 
@@ -63,6 +66,9 @@ namespace cutscene
 
     // true when the entity is the actor being recorded
     bool isrecordingactor(physent* d);
+
+    // return the id for the given actor (-1 if not an actor)
+    int actorid(physent* d);
 
     // return the number of frames currently loaded
     int frameslen();

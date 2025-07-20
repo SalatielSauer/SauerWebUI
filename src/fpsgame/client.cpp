@@ -2229,6 +2229,7 @@ namespace game
     ICOMMAND(cutscenecamlerpfrom, "", (), cutscene::lerpcamfrom());
     ICOMMAND(cutscenecamlerpto, "i", (int* m), cutscene::lerpcamto(*m));
     ICOMMAND(cutscenecamclear, "iN", (int* d, int* n), cutscene::clearcam(*n ? *d : 0));
+    ICOMMAND(cutsceneactorclear, "i", (int* id), cutscene::clearactor(*id));
 
     ICOMMAND(cutscenecurrentframe, "", (),
     {
