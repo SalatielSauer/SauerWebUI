@@ -239,7 +239,14 @@ namespace game
     void updateworld()        // main game update loop
     {
         if(!maptime) { maptime = lastmillis; maprealtime = totalmillis; return; }
-        if(!curtime) { gets2c(); if(player1->clientnum>=0) c2sinfo(); return; }
+        //if(!curtime) { gets2c(); if(player1->clientnum>=0) c2sinfo(); return; }
+        if (!curtime)
+        {
+            gets2c();
+            if (player1->clientnum >= 0) c2sinfo();
+            cutscene::update(0); // SauerWUI - cutscene playback
+            return;
+        }
 
         physicsframe();
         ai::navigate();
