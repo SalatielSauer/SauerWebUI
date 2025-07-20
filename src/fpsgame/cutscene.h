@@ -66,6 +66,12 @@ namespace cutscene
 
     // return the number of frames currently loaded
     int frameslen();
+
+    // return the current time position in milliseconds
+    int currenttime();
+
+    // return the current frame index
+    int currentframe();
 }
 
 #endif // CUTSCENE_H

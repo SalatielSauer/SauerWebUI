@@ -185,6 +185,36 @@ namespace cutscene
         return recording && curactor >= 0 && curactor < actors.length() && actors[curactor] == d;
     }
 
+    int currenttime()
+    {
+        if (!isactive()) return 0;
+        return paused ? pausestart - starttime : lastmillis - starttime;
+    }
+
+    int currentframe()
+    {
+        if (!isactive()) return 0;
+        int curms = currenttime();
+
+        int best = -1;
+
+        if (!cameraframes.empty())
+        {
+            int idx = 0;
+            while (idx + 1 < cameraframes.length() && cameraframes[idx + 1].time <= curms) idx++;
+            best = idx;
+        }
+
+        loopi(numactors) if (actorframes[i].length())
+        {
+            int aidx = 0;
+            while (aidx + 1 < actorframes[i].length() && actorframes[i][aidx + 1].time <= curms) aidx++;
+            best = max(best, aidx);
+        }
+
+        return max(best, 0);
+    }
+
     static void playinternal(const char* file, int startms, int endms, bool camera)
     {
         if (!m_edit)

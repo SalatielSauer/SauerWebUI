@@ -2230,5 +2230,14 @@ namespace game
     ICOMMAND(cutscenecamlerpto, "i", (int* m), cutscene::lerpcamto(*m));
     ICOMMAND(cutscenecamclear, "iN", (int* d, int* n), cutscene::clearcam(*n ? *d : 0));
 
+    ICOMMAND(cutscenecurrentframe, "", (),
+    {
+        int frame = cutscene::currentframe();
+        int ms = cutscene::currenttime();
+        int secs = ms / 1000;
+        defformatstring(out, "%d %d:%02d", frame, secs/60, secs%60);
+        result(out);
+    });
+
 }
 
