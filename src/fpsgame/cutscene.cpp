@@ -426,6 +426,11 @@ namespace cutscene
 
     void update(int curtime)
     {
+        int shaderstate = 0;
+        if (paused) shaderstate = 2;
+        else if (recording) shaderstate = 1;
+        else if (playing) shaderstate = 3;
+        GLOBALPARAMI(cutscenestate, shaderstate);
         if (recording && !paused)
         {
             showcameramodel = false;
