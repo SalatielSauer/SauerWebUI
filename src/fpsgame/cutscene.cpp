@@ -11,6 +11,7 @@ extern matrix4 projmatrix;
 extern vec curfogcolor;
 extern void setcamprojmatrix(bool init = true, bool flush = false);
 extern void setcammatrix();
+extern int unescapestring(char* dst, const char* src, const char* end);
 
 namespace game { fpsent* spawnstate(::fpsent* d); void updatepos(fpsent* d); }
 
@@ -26,6 +27,27 @@ namespace cutscene
             int gun;
             int attack;
         };
+
+    struct subtitle
+    {
+        int frame;
+        int start;
+        int duration;
+        int x, y;
+        float size;
+        string script;
+    };
+
+    struct image
+    {
+        int frame;
+        int start;
+        int duration;
+        int x, y;
+        float scale;
+        string path;
+        Texture* tex;
+    };
 
     static void applyframe(fpsent* d, const frame& fr, const frame* prev)
     {
@@ -80,6 +102,12 @@ namespace cutscene
     static vector< vector<frame> > actorframes;
     static vector<int> actormodels;
     static vector<frame> pauseframes;
+
+    static vector<subtitle> subtitles;
+    static int subtitleindex = 0;
+
+    static vector<image> images;
+    static int imageindex = 0;
 
     static vector<fpsent*> actors;
     static vector<int> actorindex;
@@ -143,7 +171,7 @@ namespace cutscene
         delete f;
     }
 
-    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor)
+    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL)
     {
         size_t len = 0;
         char* buf = loadfile(path(formatfile(fn), true), &len);
@@ -177,6 +205,51 @@ namespace cutscene
                 fr.gun = 0;
                 fr.attack = 0;
             }
+            else if(!strncmp(line, "subtitle", 8))
+            {
+                if(subs)
+                {
+                    subtitle s;
+                    s.start = 0;
+                    s.frame = 0;
+                    s.duration = 0;
+                    s.x = s.y = 0;
+                    s.size = 1.0f;
+                    int n = sscanf(line, "subtitle %d [%255[^]]] %d %d %d %f", &s.frame, s.script, &s.x, &s.y, &s.duration, &s.size);
+                    if (n >= 5)
+                    {
+                        if (n < 6) s.size = 1.0f;
+                        int len = unescapestring(s.script, s.script, s.script + strlen(s.script));
+                        s.script[len] = '\0';
+                        subs->add(s);
+                    }
+                }
+                line = next;
+                if(!line) break;
+                continue;
+            }
+            else if (!strncmp(line, "image", 5))
+            {
+                if (imgs)
+                {
+                    image im;
+                    im.start = 0;
+                    im.frame = 0;
+                    im.duration = 0;
+                    im.x = im.y = 0;
+                    im.scale = 1.0f;
+                    im.tex = NULL;
+                    int n = sscanf(line, "image %d \"%255[^\"]\" %d %d %d %f", &im.frame, im.path, &im.x, &im.y, &im.duration, &im.scale);
+                    if (n >= 5)
+                    {
+                        if (n < 6) im.scale = 1.0f;
+                        imgs->add(im);
+                    }
+                }
+                line = next;
+                if (!line) break;
+                continue;
+            }
             else { line = next; if (!line) break; continue; }
 
             if (fr.actor < 0) cam.add(fr);
@@ -188,6 +261,24 @@ namespace cutscene
             }
             line = next;
             if (!line) break;
+        }
+        if(subs)
+        {
+            loopv((*subs))
+            {
+                subtitle &s = (*subs)[i];
+                if(cam.inrange(s.frame)) s.start = cam[s.frame].time;
+                else s.start = 0;
+            }
+        }
+        if (imgs)
+        {
+            loopv((*imgs))
+            {
+                image& im = (*imgs)[i];
+                if (cam.inrange(im.frame)) im.start = cam[im.frame].time;
+                else im.start = 0;
+            }
         }
         delete[] buf;
         return true;
@@ -244,8 +335,12 @@ namespace cutscene
         vector<frame> cam;
         vector< vector<frame> > acts;
         vector<int> models;
+        vector<subtitle> subs;
+        vector<image> imgs;
+
         int maxactor = -1;
-        if (!readframes(file, cam, acts, models, maxactor) || (cam.empty() && acts.empty()))
+
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs) || (cam.empty() && acts.empty()))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -253,6 +348,10 @@ namespace cutscene
         cameraframes.move(cam);
         actorframes.move(acts);
         actormodels.move(models);
+        subtitles.move(subs);
+        images.move(imgs);
+        subtitleindex = 0;
+        imageindex = 0;
         numactors = maxactor + 1;
         while (actorframes.length() < numactors) actorframes.add();
         actors.shrink(0);
@@ -281,6 +380,8 @@ namespace cutscene
         loopi(numactors) actorindex[i] = 0;
         while (camindex < cameraframes.length() && cameraframes[camindex].time < startms) camindex++;
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < startms) actorindex[i]++;
+        while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < startms) subtitleindex++;
+        while (imageindex < images.length() && images[imageindex].start < startms) imageindex++;
         playing = true;
         recording = false;
         paused = false;
@@ -343,8 +444,12 @@ namespace cutscene
         vector<frame> cam;
         vector< vector<frame> > acts;
         vector<int> models;
+        vector<subtitle> subs;
+        vector<image> imgs;
+
         int maxactor = -1;
-        if (!readframes(file, cam, acts, models, maxactor))
+
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -551,6 +656,10 @@ namespace cutscene
         cameraframes.shrink(0);
         actorframes.shrink(0);
         actormodels.shrink(0);
+        subtitles.shrink(0);
+        images.shrink(0);
+        subtitleindex = 0;
+        imageindex = 0;
         camindex = 0;
         numactors = 0;
         curactor = -1;
@@ -580,8 +689,10 @@ namespace cutscene
         vector<frame> cam;
         vector< vector<frame> > acts;
         vector<int> models;
+        vector<subtitle> subs;
+        vector<image> imgs;
         int maxa = -1;
-        if (!readframes(formatfile(file), cam, acts, models, maxa) || (cam.empty() && acts.empty())) return;
+        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs) || (cam.empty() && acts.empty())) return;
         int offset = 0;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
         loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
@@ -612,6 +723,18 @@ namespace cutscene
                 if (outfile) writeframe(outfile, fr);
             }
         }
+        loopv(subs)
+        {
+            subtitle s = subs[i];
+            s.start += offset;
+            subtitles.add(s);
+        }
+        loopv(imgs)
+        {
+            image im = imgs[i];
+            im.start += offset;
+            images.add(im);
+        }
         loopi(models.length()) if (i < actormodels.length()) actormodels[i] = models[i];
         updateframeslen();
         conoutf(CON_DEBUG, "loaded cutscene %s", file);
@@ -623,6 +746,8 @@ namespace cutscene
         starttime = lastmillis;
         camindex = 0;
         loopi(numactors) actorindex[i] = 0;
+        subtitleindex = 0;
+        imageindex = 0;
         conoutf(CON_DEBUG, "cutscene restarted");
     }
 
@@ -634,6 +759,10 @@ namespace cutscene
         loopi(numactors) actorindex[i] = 0;
         while (camindex < cameraframes.length() && cameraframes[camindex].time < millis) camindex++;
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < millis) actorindex[i]++;
+        subtitleindex = 0;
+        imageindex = 0;
+        while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < millis) subtitleindex++;
+        while (imageindex < images.length() && images[imageindex].start < millis) imageindex++;
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
     }
 
@@ -832,6 +961,52 @@ namespace cutscene
         hudshader->set();
 
         showcameramodel = oldmodel;
+    }
+
+    void rendersubtitles()
+    {
+        if (subtitles.empty() || !playing) return;
+        int curms = paused ? pausestart - starttime : lastmillis - starttime;
+        while (subtitleindex < subtitles.length() && curms >= subtitles[subtitleindex].start + subtitles[subtitleindex].duration) subtitleindex++;
+        for (int i = subtitleindex; i < subtitles.length() && curms >= subtitles[i].start; ++i)
+        {
+            if (curms > subtitles[i].start + subtitles[i].duration) continue;
+            char* text = executestr(subtitles[i].script);
+            if (text && *text)
+            {
+                pushhudmatrix();
+                float scale = (screenh / 1800.0f) * subtitles[i].size;
+                hudmatrix.scale(scale, scale, 1);
+                flushhudmatrix();
+                draw_text(text, subtitles[i].x, subtitles[i].y);
+                pophudmatrix();
+                hudshader->set();
+            }
+            delete[] text;
+        }
+    }
+
+    void renderimages()
+    {
+        if (images.empty() || !playing) return;
+        int curms = paused ? pausestart - starttime : lastmillis - starttime;
+        while (imageindex < images.length() && curms >= images[imageindex].start + images[imageindex].duration) imageindex++;
+        for (int i = imageindex; i < images.length() && curms >= images[i].start; ++i)
+        {
+            if (curms > images[i].start + images[i].duration) continue;
+            if (!images[i].tex) images[i].tex = textureload(images[i].path, 3, true);
+            Texture* tex = images[i].tex;
+            if (!tex) continue;
+            glBindTexture(GL_TEXTURE_2D, tex->id);
+            hudshader->set();
+            pushhudmatrix();
+            float scale = (screenh / 1800.0f) * images[i].scale;
+            hudmatrix.scale(scale, scale, 1);
+            flushhudmatrix();
+            hudquad(images[i].x, images[i].y, tex->w, tex->h);
+            pophudmatrix();
+            hudshader->set();
+        }
     }
 
     void lerpcamfrom()

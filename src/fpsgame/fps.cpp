@@ -1109,7 +1109,9 @@ namespace game
             if(hudscore) drawhudscore(w, h);
         }
 
+        cutscene::renderimages(); // SauerWUI - cutscene playback images
         cutscene::rendercamerafeed(); // SauerWUI - cutscene playback
+        cutscene::rendersubtitles(); // SauerWUI - cutscene playback subtitles
     }
 
     int clipconsole(int w, int h)

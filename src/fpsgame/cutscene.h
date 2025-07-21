@@ -51,6 +51,12 @@ namespace cutscene
     // render camera feed overlay when debugging
     void rendercamerafeed();
 
+    // render active subtitles
+    void rendersubtitles();
+
+    // render active images
+    void renderimages();
+
     // store current camera settings for later interpolation
     void lerpcamfrom();
 
