@@ -1,6 +1,9 @@
 #include "game.h"
 #include "cutscene.h"
 #include "engine.h"
+#include "SDL_mixer.h" // experimental audio support
+
+extern int maxchannels; // experimental audio support
 
 extern bool detachedcamera;
 
@@ -47,6 +50,20 @@ namespace cutscene
         float scale;
         string path;
         Texture* tex;
+    };
+
+    // experimental audio support
+    struct audio
+    {
+        int frame;
+        int start;
+        int duration;
+        int from, to;
+        string path;
+        string cond;
+        Mix_Chunk *chunk;
+        Mix_Chunk* clip;
+        int channel;
     };
 
     static void applyframe(fpsent* d, const frame& fr, const frame* prev)
@@ -108,6 +125,11 @@ namespace cutscene
 
     static vector<image> images;
     static int imageindex = 0;
+
+    // experimental audio support
+    static vector<audio> audios;
+    static int audioindex = 0;
+    static int extrachannels = 0;
 
     static vector<fpsent*> actors;
     static vector<int> actorindex;
@@ -171,7 +193,7 @@ namespace cutscene
         delete f;
     }
 
-    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL)
+    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL) // experimental audio support
     {
         size_t len = 0;
         char* buf = loadfile(path(formatfile(fn), true), &len);
@@ -250,6 +272,30 @@ namespace cutscene
                 if (!line) break;
                 continue;
             }
+            else if (!strncmp(line, "audio", 5)) // experimental audio support
+            {
+                if (aus)
+                {
+                    audio au;
+                    au.start = 0;
+                    au.frame = 0;
+                    au.duration = 0;
+                    au.from = au.to = 0;
+                    au.chunk = NULL;
+                    au.channel = -1;
+                    au.cond[0] = '\0';
+                    au.clip = NULL;
+                    int n = sscanf(line, "audio %d \"%255[^\"]\" %d %d %d [%255[^]]]", &au.frame, au.path, &au.from, &au.to, &au.duration, au.cond);
+                    if(n >= 5)
+                    {
+                        if(n < 6) au.cond[0] = '\0';
+                        aus->add(au);
+                    }
+                }
+                line = next;
+                if (!line) break;
+                continue;
+            }
             else { line = next; if (!line) break; continue; }
 
             if (fr.actor < 0) cam.add(fr);
@@ -280,6 +326,18 @@ namespace cutscene
                 else im.start = 0;
             }
         }
+
+        // experimental audio support
+        if (aus)
+        {
+            loopv((*aus))
+            {
+                audio &au = (*aus)[i];
+                if (cam.inrange(au.frame)) au.start = cam[au.frame].time;
+                else au.start = 0;
+            }
+        }
+
         delete[] buf;
         return true;
     }
@@ -338,9 +396,11 @@ namespace cutscene
         vector<subtitle> subs;
         vector<image> imgs;
 
+        vector<audio> aus; // experimental audio support
+
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs) || (cam.empty() && acts.empty()))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus) || (cam.empty() && acts.empty()))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -350,8 +410,19 @@ namespace cutscene
         actormodels.move(models);
         subtitles.move(subs);
         images.move(imgs);
+
+        // experimental audio support
+        audios.move(aus);
+        extrachannels = audios.length();
+        if (extrachannels > 0)
+        {
+            Mix_AllocateChannels(maxchannels + extrachannels);
+            Mix_ReserveChannels(maxchannels);
+        }
+
         subtitleindex = 0;
         imageindex = 0;
+        audioindex = 0; // experimental audio support
         numactors = maxactor + 1;
         while (actorframes.length() < numactors) actorframes.add();
         actors.shrink(0);
@@ -599,6 +670,40 @@ namespace cutscene
                         applyframe(d, fr, prev);
                 }
             }
+
+            // experimental audio support
+            while (audioindex < audios.length() && playtime >= audios[audioindex].start + audios[audioindex].duration) audioindex++;
+            for(int i = audioindex; i < audios.length() && playtime >= audios[i].start; ++i)
+            {
+                if (playtime > audios[i].start + audios[i].duration) continue;
+                if (audios[i].cond[0])
+                {
+                    char* ret = executestr(audios[i].cond);
+                    bool ok = ret && atoi(ret) != 0;
+                    delete[] ret;
+                    if (!ok) continue;
+                }
+                if (audios[i].channel >= 0 && Mix_Playing(audios[i].channel)) continue;
+                if (audios[i].channel >= 0 && !Mix_Playing(audios[i].channel))
+                {
+                    if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+                    audios[i].channel = -1;
+                }
+                if(!audios[i].chunk) audios[i].chunk = Mix_LoadWAV(findfile(audios[i].path, "rb"));
+                if(!audios[i].chunk) continue;
+                int freq=0, chans=0; Uint16 fmt=0; Mix_QuerySpec(&freq,&fmt,&chans);
+                int bps = freq * ((fmt & 0xFF)/8) * chans;
+                Uint32 startb = Uint32((double)audios[i].from * bps / 1000.0);
+                Uint32 endb = audios[i].to > audios[i].from ? Uint32((double)audios[i].to * bps / 1000.0) : audios[i].chunk->alen;
+                if (endb > audios[i].chunk->alen) endb = audios[i].chunk->alen;
+                if (startb >= endb) continue;
+                if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+                audios[i].clip = Mix_QuickLoad_RAW(audios[i].chunk->abuf + startb, endb - startb);
+                if (!audios[i].clip) continue;
+                audios[i].clip->allocated = 0;
+                audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, (audios[i].to > audios[i].from) ? audios[i].to - audios[i].from : -1);
+            }
+
             //showcameramodel = !usecamera && !recording;
             showcameramodel = !usecamera && !(recording && curactor < 0);
         }
@@ -658,8 +763,26 @@ namespace cutscene
         actormodels.shrink(0);
         subtitles.shrink(0);
         images.shrink(0);
+
+        // experimental audio support
+        loopv(audios)
+        {
+            if (audios[i].channel >= 0) Mix_HaltChannel(audios[i].channel);
+            if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+            if (audios[i].chunk && audios[i].chunk->allocated)
+                Mix_FreeChunk(audios[i].chunk);
+        }
+        audios.shrink(0);
+        if (extrachannels > 0)
+        {
+            Mix_ReserveChannels(0);
+            Mix_AllocateChannels(maxchannels);
+            extrachannels = 0;
+        }
+
         subtitleindex = 0;
         imageindex = 0;
+        audioindex = 0; // experimental audio support
         camindex = 0;
         numactors = 0;
         curactor = -1;
@@ -691,8 +814,9 @@ namespace cutscene
         vector<int> models;
         vector<subtitle> subs;
         vector<image> imgs;
+        vector<audio> aus;  // experimental audio support
         int maxa = -1;
-        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs) || (cam.empty() && acts.empty())) return;
+        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus) || (cam.empty() && acts.empty())) return;
         int offset = 0;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
         loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
@@ -735,6 +859,18 @@ namespace cutscene
             im.start += offset;
             images.add(im);
         }
+
+        // experimental audio support
+        loopv(aus)
+        {
+            audio au = aus[i];
+            au.start += offset;
+            au.channel = -1;
+            au.chunk = NULL;
+            au.clip = NULL;
+            audios.add(au);
+        }
+
         loopi(models.length()) if (i < actormodels.length()) actormodels[i] = models[i];
         updateframeslen();
         conoutf(CON_DEBUG, "loaded cutscene %s", file);
@@ -748,6 +884,7 @@ namespace cutscene
         loopi(numactors) actorindex[i] = 0;
         subtitleindex = 0;
         imageindex = 0;
+        audioindex = 0;  // experimental audio support
         conoutf(CON_DEBUG, "cutscene restarted");
     }
 
@@ -761,8 +898,14 @@ namespace cutscene
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < millis) actorindex[i]++;
         subtitleindex = 0;
         imageindex = 0;
+
+        // experimental audio support
+        audioindex = 0;
+        while (audioindex < audios.length() && audios[audioindex].start < millis) audioindex++;
+
         while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < millis) subtitleindex++;
         while (imageindex < images.length() && images[imageindex].start < millis) imageindex++;
+        
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
     }
 
