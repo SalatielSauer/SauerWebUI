@@ -202,7 +202,7 @@ namespace cutscene
         loopv(subtitles) f->printf("subtitle %d [%s] %d %d %d %f\n", subtitles[i].frame, subtitles[i].script, subtitles[i].x, subtitles[i].y, subtitles[i].duration, subtitles[i].size);
         loopv(images) f->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
         loopv(audios) f->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
-        loopv(actormodels) f->printf("model %d %d\n", i, actormodels[i]);
+        loopv(actormodels) f->printf("actormodel %d %d\n", i, actormodels[i]);
         loopv(cameraframes) writeframe(f, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(f, actorframes[i][j]);
         delete f;
@@ -219,7 +219,7 @@ namespace cutscene
             char* next = strchr(line, '\n');
             if (next) *next++ = '\0';
             int id, mdl;
-            if (sscanf(line, "model %d %d", &id, &mdl) == 2)
+            if (sscanf(line, "actormodel %d %d", &id, &mdl) == 2)
             {
                 while (models.length() <= id) models.add(-1);
                 models[id] = mdl;
@@ -547,7 +547,7 @@ namespace cutscene
             conoutf(CON_ERROR, "cannot open %s for recording", file);
             return;
         }
-        loopv(actormodels) outfile->printf("model %d %d\n", i, actormodels[i]);
+        loopv(actormodels) outfile->printf("actormodel %d %d\n", i, actormodels[i]);
         copystring(filename, formatfile(file));
         DELETEA(cutscenecurrentfile);
         cutscenecurrentfile = newstring(filename);
@@ -667,7 +667,7 @@ namespace cutscene
         loopv(images) outfile->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
         loopv(audios) outfile->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
         
-        loopv(actormodels) outfile->printf("model %d %d\n", i, actormodels[i]);
+        loopv(actormodels) outfile->printf("actormodel %d %d\n", i, actormodels[i]);
         if (!spec) loopv(cameraframes) writeframe(outfile, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(outfile, actorframes[i][j]);
 
@@ -1376,7 +1376,7 @@ namespace cutscene
         target.gun = 0;
         target.attack = 0;
 
-        const int step = 50;
+        const int step = 1;
         cameraframes.add(lerpcamstart);
         if (outfile) writeframe(outfile, lerpcamstart);
         for (int t = step; t < millis; t += step)
