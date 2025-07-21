@@ -66,6 +66,15 @@ namespace cutscene
         int channel;
     };
 
+    struct postfx
+    {
+        int frame;
+        int start;
+        int duration;
+        vec4 params;
+        string script;
+    };
+
     static void applyframe(fpsent* d, const frame& fr, const frame* prev)
     {
         d->o = fr.pos;
@@ -131,6 +140,9 @@ namespace cutscene
     static int audioindex = 0;
     static int extrachannels = 0;
 
+    static vector<postfx> postfxs;
+    static int postfxindex = 0;
+
     static vector<fpsent*> actors;
     static vector<int> actorindex;
 
@@ -187,13 +199,16 @@ namespace cutscene
             conoutf(CON_ERROR, "cannot write %s", cutscenecurrentfile);
             return;
         }
+        loopv(subtitles) f->printf("subtitle %d [%s] %d %d %d %f\n", subtitles[i].frame, subtitles[i].script, subtitles[i].x, subtitles[i].y, subtitles[i].duration, subtitles[i].size);
+        loopv(images) f->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
+        loopv(audios) f->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
         loopv(actormodels) f->printf("model %d %d\n", i, actormodels[i]);
         loopv(cameraframes) writeframe(f, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(f, actorframes[i][j]);
         delete f;
     }
 
-    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL) // experimental audio support
+    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL, vector<postfx>* fx = NULL)
     {
         size_t len = 0;
         char* buf = loadfile(path(formatfile(fn), true), &len);
@@ -296,6 +311,25 @@ namespace cutscene
                 if (!line) break;
                 continue;
             }
+            else if (!strncmp(line, "postfx", 6))
+            {
+                if (fx)
+                {
+                    postfx px;
+                    px.start = 0;
+                    px.frame = 0;
+                    px.duration = 0;
+                    px.params = vec4(0, 0, 0, 0);
+                    int n = sscanf(line, "postfx %d [%255[^]]] %d %f %f %f %f", &px.frame, px.script, &px.duration, &px.params.x, &px.params.y, &px.params.z, &px.params.w);
+                    if (n >= 3)
+                    {
+                        fx->add(px);
+                    }
+                }
+                line = next;
+                if (!line) break;
+                continue;
+            }
             else { line = next; if (!line) break; continue; }
 
             if (fr.actor < 0) cam.add(fr);
@@ -308,6 +342,7 @@ namespace cutscene
             line = next;
             if (!line) break;
         }
+
         if(subs)
         {
             loopv((*subs))
@@ -317,6 +352,7 @@ namespace cutscene
                 else s.start = 0;
             }
         }
+
         if (imgs)
         {
             loopv((*imgs))
@@ -335,6 +371,16 @@ namespace cutscene
                 audio &au = (*aus)[i];
                 if (cam.inrange(au.frame)) au.start = cam[au.frame].time;
                 else au.start = 0;
+            }
+        }
+
+        if (fx)
+        {
+            loopv((*fx))
+            {
+                postfx& px = (*fx)[i];
+                if (cam.inrange(px.frame)) px.start = cam[px.frame].time;
+                else px.start = 0;
             }
         }
 
@@ -395,16 +441,17 @@ namespace cutscene
         vector<int> models;
         vector<subtitle> subs;
         vector<image> imgs;
-
         vector<audio> aus; // experimental audio support
+        vector<postfx> fx;
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus) || (cam.empty() && acts.empty()))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx) || (cam.empty() && acts.empty()))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
         }
+
         cameraframes.move(cam);
         actorframes.move(acts);
         actormodels.move(models);
@@ -420,9 +467,12 @@ namespace cutscene
             Mix_ReserveChannels(maxchannels);
         }
 
+        postfxs.move(fx);
+
         subtitleindex = 0;
         imageindex = 0;
         audioindex = 0; // experimental audio support
+        postfxindex = 0;
         numactors = maxactor + 1;
         while (actorframes.length() < numactors) actorframes.add();
         actors.shrink(0);
@@ -453,6 +503,7 @@ namespace cutscene
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < startms) actorindex[i]++;
         while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < startms) subtitleindex++;
         while (imageindex < images.length() && images[imageindex].start < startms) imageindex++;
+        while (postfxindex < postfxs.length() && postfxs[postfxindex].start < startms) postfxindex++;
         playing = true;
         recording = false;
         paused = false;
@@ -517,10 +568,12 @@ namespace cutscene
         vector<int> models;
         vector<subtitle> subs;
         vector<image> imgs;
+        vector<audio> aus; // experimental audio support
+        vector<postfx> fx;
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, NULL, &fx))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -539,6 +592,22 @@ namespace cutscene
         }
         actorframes.move(acts);
         actormodels.move(models);
+        subtitles.move(subs);
+        images.move(imgs);
+
+        // experimental audio support
+        audios.move(aus);
+        extrachannels = audios.length();
+        if (extrachannels > 0)
+        {
+            Mix_AllocateChannels(maxchannels + extrachannels);
+            Mix_ReserveChannels(maxchannels);
+        }
+
+        subtitleindex = 0;
+        imageindex = 0;
+        audioindex = 0;
+
         numactors = maxactor + 1;
         actors.shrink(0);
         actorindex.shrink(0);
@@ -588,6 +657,11 @@ namespace cutscene
             stop();
             return;
         }
+
+        loopv(subtitles) outfile->printf("subtitle %d [%s] %d %d %d %f\n", subtitles[i].frame, subtitles[i].script, subtitles[i].x, subtitles[i].y, subtitles[i].duration, subtitles[i].size);
+        loopv(images) outfile->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
+        loopv(audios) outfile->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
+        
         loopv(actormodels) outfile->printf("model %d %d\n", i, actormodels[i]);
         if (!spec) loopv(cameraframes) writeframe(outfile, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(outfile, actorframes[i][j]);
@@ -704,6 +778,22 @@ namespace cutscene
                 audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, (audios[i].to > audios[i].from) ? audios[i].to - audios[i].from : -1);
             }
 
+            while (postfxindex < postfxs.length() && playtime >= postfxs[postfxindex].start + postfxs[postfxindex].duration) postfxindex++;
+            bool addedfx = false;
+            for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
+            {
+                if (playtime > postfxs[i].start + postfxs[i].duration) continue;
+                char* sh = executestr(postfxs[i].script);
+                if (sh && *sh)
+                {
+                    defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
+                    execute(cmd);
+                    addedfx = true;
+                }
+                delete[] sh;
+            }
+            if (!addedfx) execute("clearpostfx");
+
             //showcameramodel = !usecamera && !recording;
             showcameramodel = !usecamera && !(recording && curactor < 0);
         }
@@ -739,6 +829,13 @@ namespace cutscene
                 fr.attack = actors[i]->attacking ? 1 : 0;
                 pauseframes.add(fr);
             }
+
+            // experimental audio support
+            loopv(audios)
+            {
+                if (audios[i].channel >= 0 && Mix_Playing(audios[i].channel))
+                    Mix_Pause(audios[i].channel);
+            }
             paused = true;
             conoutf(CON_DEBUG, "cutscene paused");
         }
@@ -747,6 +844,13 @@ namespace cutscene
             starttime += lastmillis - pausestart;
             paused = false;
             pauseframes.shrink(0);
+
+            // experimental audio support
+            loopv(audios)
+            {
+                if (audios[i].channel >= 0 && Mix_Paused(audios[i].channel))
+                    Mix_Resume(audios[i].channel);
+            }
             conoutf(CON_DEBUG, "cutscene resumed");
         }
     }
@@ -780,6 +884,8 @@ namespace cutscene
             extrachannels = 0;
         }
 
+        postfxs.shrink(0);
+
         subtitleindex = 0;
         imageindex = 0;
         audioindex = 0; // experimental audio support
@@ -800,6 +906,9 @@ namespace cutscene
             game::player1->state = oldplayerstate;
             changedstate = false;
         }
+
+        execute("clearpostfx");
+
         conoutf(CON_DEBUG, "cutscene stopped");
         filename[0] = '\0';
         DELETEA(cutscenecurrentfile);
@@ -815,11 +924,16 @@ namespace cutscene
         vector<subtitle> subs;
         vector<image> imgs;
         vector<audio> aus;  // experimental audio support
+        vector<postfx> fx;
+
         int maxa = -1;
-        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus) || (cam.empty() && acts.empty())) return;
         int offset = 0;
+
+        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx) || (cam.empty() && acts.empty())) return;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
+
         loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
+
         loopv(cam)
         {
             frame fr = cam[i];
@@ -827,6 +941,7 @@ namespace cutscene
             cameraframes.add(fr);
             if (outfile) writeframe(outfile, fr);
         }
+
         loopvj(acts)
         {
             int id = j;
@@ -847,12 +962,14 @@ namespace cutscene
                 if (outfile) writeframe(outfile, fr);
             }
         }
+
         loopv(subs)
         {
             subtitle s = subs[i];
             s.start += offset;
             subtitles.add(s);
         }
+
         loopv(imgs)
         {
             image im = imgs[i];
@@ -871,6 +988,13 @@ namespace cutscene
             audios.add(au);
         }
 
+        loopv(fx)
+        {
+            postfx px = fx[i];
+            px.start += offset;
+            postfxs.add(px);
+        }
+
         loopi(models.length()) if (i < actormodels.length()) actormodels[i] = models[i];
         updateframeslen();
         conoutf(CON_DEBUG, "loaded cutscene %s", file);
@@ -885,6 +1009,7 @@ namespace cutscene
         subtitleindex = 0;
         imageindex = 0;
         audioindex = 0;  // experimental audio support
+        postfxindex = 0;
         conoutf(CON_DEBUG, "cutscene restarted");
     }
 
@@ -898,6 +1023,7 @@ namespace cutscene
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < millis) actorindex[i]++;
         subtitleindex = 0;
         imageindex = 0;
+        postfxindex = 0;
 
         // experimental audio support
         audioindex = 0;
@@ -905,6 +1031,7 @@ namespace cutscene
 
         while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < millis) subtitleindex++;
         while (imageindex < images.length() && images[imageindex].start < millis) imageindex++;
+        while (postfxindex < postfxs.length() && postfxs[postfxindex].start < millis) postfxindex++;
         
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
     }
@@ -1121,8 +1248,9 @@ namespace cutscene
                 float scale = (screenh / 1800.0f) * subtitles[i].size;
                 hudmatrix.scale(scale, scale, 1);
                 flushhudmatrix();
+                glEnable(GL_BLEND);
                 draw_text(text, subtitles[i].x, subtitles[i].y);
-                pophudmatrix();
+                pophudmatrix(true);
                 hudshader->set();
             }
             delete[] text;
