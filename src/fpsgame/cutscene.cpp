@@ -446,7 +446,7 @@ namespace cutscene
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx) || (cam.empty() && acts.empty()))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -495,15 +495,15 @@ namespace cutscene
         startms = max(startms, 0);
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
         loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
+        loopv(subtitles) lasttime = max(lasttime, subtitles[i].start + subtitles[i].duration);
+        loopv(images) lasttime = max(lasttime, images[i].start + images[i].duration);
+        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration); // experimental audio support
+        loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
         endtime = endms > 0 ? min(endms, lasttime) : lasttime;
-        starttime = lastmillis - startms;
+        starttime = lastmillis;
         camindex = 0;
         loopi(numactors) actorindex[i] = 0;
-        while (camindex < cameraframes.length() && cameraframes[camindex].time < startms) camindex++;
-        loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < startms) actorindex[i]++;
-        while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < startms) subtitleindex++;
-        while (imageindex < images.length() && images[imageindex].start < startms) imageindex++;
-        while (postfxindex < postfxs.length() && postfxs[postfxindex].start < startms) postfxindex++;
+        subtitleindex = imageindex = audioindex = postfxindex = 0;
         playing = true;
         recording = false;
         paused = false;
@@ -518,6 +518,7 @@ namespace cutscene
                 changedstate = true;
             }
         }
+        settime(startms);
         conoutf(CON_DEBUG, "play cutscene %s from %d to %d", file, startms, endtime);
     }
 
@@ -573,7 +574,7 @@ namespace cutscene
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, NULL, &fx))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -628,6 +629,10 @@ namespace cutscene
         cutscenecurrentfile = newstring(filename);
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
         loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
+        loopv(subtitles) lasttime = max(lasttime, subtitles[i].start + subtitles[i].duration);
+        loopv(images) lasttime = max(lasttime, images[i].start + images[i].duration);
+        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration); // experimental audio support
+        loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
         endtime = lasttime;
         starttime = lastmillis;
         camindex = 0;
@@ -929,11 +934,14 @@ namespace cutscene
         int maxa = -1;
         int offset = 0;
 
-        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx) || (cam.empty() && acts.empty())) return;
+        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx)) return;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
 
         loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
-
+        loopv(subtitles) offset = max(offset, subtitles[i].start + subtitles[i].duration);
+        loopv(images) offset = max(offset, images[i].start + images[i].duration);
+        loopv(audios) offset = max(offset, audios[i].start + audios[i].duration); // experimental audio support 
+        loopv(postfxs) offset = max(offset, postfxs[i].start + postfxs[i].duration);
         loopv(cam)
         {
             frame fr = cam[i];
@@ -1016,6 +1024,17 @@ namespace cutscene
     void settime(int millis)
     {
         if (!isactive()) return;
+        // reset any running audio and post effects when seeking
+        loopv(audios)
+        {
+            if (audios[i].channel >= 0)
+            {
+                Mix_HaltChannel(audios[i].channel);
+                if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+                audios[i].channel = -1;
+            }
+        }
+        execute("clearpostfx");
         starttime = lastmillis - millis;
         camindex = 0;
         loopi(numactors) actorindex[i] = 0;
@@ -1027,12 +1046,62 @@ namespace cutscene
 
         // experimental audio support
         audioindex = 0;
-        while (audioindex < audios.length() && audios[audioindex].start < millis) audioindex++;
+        while (audioindex < audios.length() && audios[audioindex].start + audios[audioindex].duration <= millis) audioindex++;
 
-        while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start < millis) subtitleindex++;
-        while (imageindex < images.length() && images[imageindex].start < millis) imageindex++;
-        while (postfxindex < postfxs.length() && postfxs[postfxindex].start < millis) postfxindex++;
-        
+        while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start + subtitles[subtitleindex].duration <= millis) subtitleindex++;
+        while (imageindex < images.length() && images[imageindex].start + images[imageindex].duration <= millis) imageindex++;
+        while (postfxindex < postfxs.length() && postfxs[postfxindex].start + postfxs[postfxindex].duration <= millis) postfxindex++;
+
+        int playtime = millis;
+
+        // start any audio that should be active at this time
+        loopi(audios.length())
+        {
+            if (playtime < audios[i].start || playtime >= audios[i].start + audios[i].duration) continue;
+            if (audios[i].cond[0])
+            {
+                char* ret = executestr(audios[i].cond);
+                bool ok = ret && atoi(ret) != 0;
+                delete[] ret;
+                if (!ok) continue;
+            }
+            if (!audios[i].chunk) audios[i].chunk = Mix_LoadWAV(findfile(audios[i].path, "rb"));
+            if (!audios[i].chunk) continue;
+            int freq = 0, chans = 0; Uint16 fmt = 0; Mix_QuerySpec(&freq, &fmt, &chans);
+            int samplesize = ((fmt & 0xFF) / 8) * chans;
+            int bps = freq * samplesize;
+            int offsetms = clamp(playtime - audios[i].start, 0, audios[i].duration);
+            Uint32 startb = Uint32((double)(audios[i].from + offsetms) * bps / 1000.0);
+            Uint32 endb = audios[i].to > audios[i].from ? Uint32((double)audios[i].to * bps / 1000.0) : audios[i].chunk->alen;
+            if (endb > audios[i].chunk->alen) endb = audios[i].chunk->alen;
+            startb -= startb % samplesize;
+            endb -= endb % samplesize;
+            if (startb >= endb) continue;
+            if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+            audios[i].clip = Mix_QuickLoad_RAW(audios[i].chunk->abuf + startb, endb - startb);
+            if (!audios[i].clip) continue;
+            audios[i].clip->allocated = 0;
+            int ticks = audios[i].duration - offsetms;
+            if (audios[i].to > audios[i].from) ticks = min(ticks, audios[i].to - audios[i].from - offsetms);
+            if (ticks <= 0) continue;
+            audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, ticks);
+        }
+
+        // apply any post effects for the current time
+        bool addedfx = false;
+        for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
+        {
+            if (playtime > postfxs[i].start + postfxs[i].duration) continue;
+            char* sh = executestr(postfxs[i].script);
+            if (sh && *sh)
+            {
+                defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
+                execute(cmd);
+                addedfx = true;
+            }
+            delete[] sh;
+        }
+        if (!addedfx) execute("clearpostfx");
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
     }
 
