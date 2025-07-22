@@ -1,9 +1,9 @@
 #include "game.h"
 #include "cutscene.h"
 #include "engine.h"
-#include "SDL_mixer.h" // experimental audio support
+#include "SDL_mixer.h"
 
-extern int maxchannels; // experimental audio support
+extern int maxchannels;
 
 extern bool detachedcamera;
 
@@ -52,7 +52,7 @@ namespace cutscene
         Texture* tex;
     };
 
-    // experimental audio support
+   
     struct audio
     {
         int frame;
@@ -73,6 +73,19 @@ namespace cutscene
         int duration;
         vec4 params;
         string script;
+    };
+
+    struct csmapmodel
+    {
+        int frame;
+        int start;
+        int duration;
+        string path;
+        string script;
+        vec pos;
+        float yaw, pitch, scale;
+        string anim;
+        int collide;
     };
 
     static void applyframe(fpsent* d, const frame& fr, const frame* prev)
@@ -135,13 +148,17 @@ namespace cutscene
     static vector<image> images;
     static int imageindex = 0;
 
-    // experimental audio support
     static vector<audio> audios;
     static int audioindex = 0;
     static int extrachannels = 0;
 
     static vector<postfx> postfxs;
     static int postfxindex = 0;
+
+    static vector<csmapmodel> csmapmodels;
+    static int mapmodelindex = 0;
+
+    static void updatemapmodels();
 
     static vector<fpsent*> actors;
     static vector<int> actorindex;
@@ -190,6 +207,29 @@ namespace cutscene
             f->printf("%d %d %f %f %f %f %f %f %d %d\n", fr.actor, fr.time, fr.pos.x, fr.pos.y, fr.pos.z, fr.yaw, fr.pitch, fr.roll, fr.gun, fr.attack);
     }
 
+    static inline int countbrackets(const char* s)
+    {
+        int n = 0;
+        for (; *s; ++s) if (*s == '[') ++n; else if (*s == ']') --n;
+        return n;
+    }
+
+    static void joinmultiline(char* line, char*& next)
+    {
+        int depth = countbrackets(line);
+        while (depth > 0 && next)
+        {
+            char* nl = strchr(next, '\n');
+            if (nl) *nl++ = '\0';
+            size_t len = strlen(line);
+            size_t add = strlen(next);
+            line[len] = '\n';
+            memmove(line + len + 1, next, add + 1);
+            depth += countbrackets(line + len + 1);
+            next = nl;
+        }
+    }
+
     static void savecurrent()
     {
         if (!cutscenecurrentfile[0]) return;
@@ -203,12 +243,13 @@ namespace cutscene
         loopv(images) f->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
         loopv(audios) f->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
         loopv(actormodels) f->printf("actormodel %d %d\n", i, actormodels[i]);
+        loopv(csmapmodels) f->printf("mapmodel %d \"%s\" [%s] %d\n", csmapmodels[i].frame, csmapmodels[i].path, csmapmodels[i].script, csmapmodels[i].duration);
         loopv(cameraframes) writeframe(f, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(f, actorframes[i][j]);
         delete f;
     }
 
-    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL, vector<postfx>* fx = NULL)
+    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL, vector<postfx>* fx = NULL, vector<csmapmodel>* mms = NULL)
     {
         size_t len = 0;
         char* buf = loadfile(path(formatfile(fn), true), &len);
@@ -218,6 +259,7 @@ namespace cutscene
         {
             char* next = strchr(line, '\n');
             if (next) *next++ = '\0';
+            joinmultiline(line, next);
             int id, mdl;
             if (sscanf(line, "actormodel %d %d", &id, &mdl) == 2)
             {
@@ -287,7 +329,7 @@ namespace cutscene
                 if (!line) break;
                 continue;
             }
-            else if (!strncmp(line, "audio", 5)) // experimental audio support
+            else if (!strncmp(line, "audio", 5))
             {
                 if (aus)
                 {
@@ -330,6 +372,32 @@ namespace cutscene
                 if (!line) break;
                 continue;
             }
+            else if (!strncmp(line, "mapmodel", 8))
+            {
+                if (mms)
+                {
+                    csmapmodel mm;
+                    mm.start = 0;
+                    mm.frame = 0;
+                    mm.duration = 0;
+                    mm.script[0] = '\0';
+                    int n = sscanf(line, "mapmodel %d \"%255[^\"]\" [%255[^]]] %d", &mm.frame, mm.path, mm.script, &mm.duration);
+                    if (n < 4)
+                    {
+                        mm.script[0] = '\0';
+                        if (sscanf(line, "mapmodel %d \"%255[^\"]\" %d", &mm.frame, mm.path, &mm.duration) < 3)
+                        {
+                            line = next;
+                            if (!line) break;
+                            continue;
+                        }
+                    }
+                    mms->add(mm);
+                }
+                line = next;
+                if(!line) break;
+                continue;
+            }
             else { line = next; if (!line) break; continue; }
 
             if (fr.actor < 0) cam.add(fr);
@@ -343,7 +411,7 @@ namespace cutscene
             if (!line) break;
         }
 
-        if(subs)
+        if (subs)
         {
             loopv((*subs))
             {
@@ -363,7 +431,7 @@ namespace cutscene
             }
         }
 
-        // experimental audio support
+       
         if (aus)
         {
             loopv((*aus))
@@ -381,6 +449,16 @@ namespace cutscene
                 postfx& px = (*fx)[i];
                 if (cam.inrange(px.frame)) px.start = cam[px.frame].time;
                 else px.start = 0;
+            }
+        }
+
+        if (mms)
+        {
+            loopv((*mms))
+            {
+                csmapmodel &mm = (*mms)[i];
+                if (cam.inrange(mm.frame)) mm.start = cam[mm.frame].time;
+                else mm.start = 0;
             }
         }
 
@@ -441,12 +519,13 @@ namespace cutscene
         vector<int> models;
         vector<subtitle> subs;
         vector<image> imgs;
-        vector<audio> aus; // experimental audio support
+        vector<audio> aus;
         vector<postfx> fx;
+        vector<csmapmodel> mms;
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx, &mms))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -458,7 +537,7 @@ namespace cutscene
         subtitles.move(subs);
         images.move(imgs);
 
-        // experimental audio support
+       
         audios.move(aus);
         extrachannels = audios.length();
         if (extrachannels > 0)
@@ -468,10 +547,11 @@ namespace cutscene
         }
 
         postfxs.move(fx);
-
+        csmapmodels.move(mms);
+        mapmodelindex = 0;
         subtitleindex = 0;
         imageindex = 0;
-        audioindex = 0; // experimental audio support
+        audioindex = 0;
         postfxindex = 0;
         numactors = maxactor + 1;
         while (actorframes.length() < numactors) actorframes.add();
@@ -497,18 +577,21 @@ namespace cutscene
         loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
         loopv(subtitles) lasttime = max(lasttime, subtitles[i].start + subtitles[i].duration);
         loopv(images) lasttime = max(lasttime, images[i].start + images[i].duration);
-        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration); // experimental audio support
+        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration);
         loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
+        loopv(csmapmodels) lasttime = max(lasttime, csmapmodels[i].start + csmapmodels[i].duration);
+        loopi(numactors) actorindex[i] = 0;
+
         endtime = endms > 0 ? min(endms, lasttime) : lasttime;
         starttime = lastmillis;
         camindex = 0;
-        loopi(numactors) actorindex[i] = 0;
         subtitleindex = imageindex = audioindex = postfxindex = 0;
         playing = true;
         recording = false;
         paused = false;
         usecamera = camera;
         detachedcamera = camera;
+
         if(camera)
         {
             oldplayerstate = game::player1->state;
@@ -569,12 +652,13 @@ namespace cutscene
         vector<int> models;
         vector<subtitle> subs;
         vector<image> imgs;
-        vector<audio> aus; // experimental audio support
+        vector<audio> aus;
         vector<postfx> fx;
+        vector<csmapmodel> mms;
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx, &mms))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -591,13 +675,21 @@ namespace cutscene
         {
             cameraframes.move(cam);
         }
+
         actorframes.move(acts);
         actormodels.move(models);
         subtitles.move(subs);
         images.move(imgs);
-
-        // experimental audio support
         audios.move(aus);
+        postfxs.move(fx);
+        csmapmodels.move(mms);
+
+        mapmodelindex = 0;
+        subtitleindex = 0;
+        imageindex = 0;
+        audioindex = 0;
+        postfxindex = 0;
+
         extrachannels = audios.length();
         if (extrachannels > 0)
         {
@@ -605,13 +697,10 @@ namespace cutscene
             Mix_ReserveChannels(maxchannels);
         }
 
-        subtitleindex = 0;
-        imageindex = 0;
-        audioindex = 0;
-
-        numactors = maxactor + 1;
         actors.shrink(0);
         actorindex.shrink(0);
+
+        numactors = maxactor + 1;
         loopi(numactors)
         {
             fpsent* d = game::spawnstate(new fpsent);
@@ -627,12 +716,16 @@ namespace cutscene
         copystring(filename, formatfile(file));
         DELETEA(cutscenecurrentfile);
         cutscenecurrentfile = newstring(filename);
+
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
+       
         loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
         loopv(subtitles) lasttime = max(lasttime, subtitles[i].start + subtitles[i].duration);
         loopv(images) lasttime = max(lasttime, images[i].start + images[i].duration);
-        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration); // experimental audio support
+        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration);
         loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
+        loopv(csmapmodels) lasttime = max(lasttime, csmapmodels[i].start + csmapmodels[i].duration);
+
         endtime = lasttime;
         starttime = lastmillis;
         camindex = 0;
@@ -666,8 +759,9 @@ namespace cutscene
         loopv(subtitles) outfile->printf("subtitle %d [%s] %d %d %d %f\n", subtitles[i].frame, subtitles[i].script, subtitles[i].x, subtitles[i].y, subtitles[i].duration, subtitles[i].size);
         loopv(images) outfile->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
         loopv(audios) outfile->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
-        
         loopv(actormodels) outfile->printf("actormodel %d %d\n", i, actormodels[i]);
+        loopv(csmapmodels) outfile->printf("mapmodel %d \"%s\" [%s] %d\n", csmapmodels[i].frame, csmapmodels[i].path, csmapmodels[i].script, csmapmodels[i].duration);
+        loopv(postfxs) outfile->printf("postfx %d [%s] %d %f %f %f %f\n", postfxs[i].frame, postfxs[i].script, postfxs[i].duration, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
         if (!spec) loopv(cameraframes) writeframe(outfile, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(outfile, actorframes[i][j]);
 
@@ -677,6 +771,24 @@ namespace cutscene
         usecamera = false;
         detachedcamera = false;
         conoutf(CON_DEBUG, "recording over cutscene %s", file);
+    }
+
+    static void updatemapmodels()
+    {
+        if (csmapmodels.empty() || !playing) return;
+        int curms = paused ? pausestart - starttime : lastmillis - starttime;
+        while (mapmodelindex < csmapmodels.length() && curms >= csmapmodels[mapmodelindex].start + csmapmodels[mapmodelindex].duration) mapmodelindex++;
+        for (int i = mapmodelindex; i < csmapmodels.length() && curms >= csmapmodels[i].start; ++i)
+        {
+            if (curms > csmapmodels[i].start + csmapmodels[i].duration) continue;
+            csmapmodel& mm = csmapmodels[i];
+            char* ret = mm.script[0] ? executestr(mm.script) : NULL;
+            const char* vals = ret && *ret ? ret : "512 512 512 0 0 20 mapmodel 1";
+            char anim[64] = "mapmodel";
+            sscanf(vals, "%f %f %f %f %f %f %63s %d", &mm.pos.x, &mm.pos.y, &mm.pos.z, &mm.yaw, &mm.pitch, &mm.scale, anim, &mm.collide);
+            copystring(mm.anim, anim);
+            delete[] ret;
+        }
     }
 
     void update(int curtime)
@@ -750,7 +862,6 @@ namespace cutscene
                 }
             }
 
-            // experimental audio support
             while (audioindex < audios.length() && playtime >= audios[audioindex].start + audios[audioindex].duration) audioindex++;
             for(int i = audioindex; i < audios.length() && playtime >= audios[i].start; ++i)
             {
@@ -799,6 +910,8 @@ namespace cutscene
             }
             if (!addedfx) execute("clearpostfx");
 
+            updatemapmodels();
+
             //showcameramodel = !usecamera && !recording;
             showcameramodel = !usecamera && !(recording && curactor < 0);
         }
@@ -835,7 +948,6 @@ namespace cutscene
                 pauseframes.add(fr);
             }
 
-            // experimental audio support
             loopv(audios)
             {
                 if (audios[i].channel >= 0 && Mix_Playing(audios[i].channel))
@@ -849,8 +961,7 @@ namespace cutscene
             starttime += lastmillis - pausestart;
             paused = false;
             pauseframes.shrink(0);
-
-            // experimental audio support
+           
             loopv(audios)
             {
                 if (audios[i].channel >= 0 && Mix_Paused(audios[i].channel))
@@ -873,7 +984,6 @@ namespace cutscene
         subtitles.shrink(0);
         images.shrink(0);
 
-        // experimental audio support
         loopv(audios)
         {
             if (audios[i].channel >= 0) Mix_HaltChannel(audios[i].channel);
@@ -890,10 +1000,11 @@ namespace cutscene
         }
 
         postfxs.shrink(0);
+        csmapmodels.shrink(0);
 
         subtitleindex = 0;
         imageindex = 0;
-        audioindex = 0; // experimental audio support
+        audioindex = 0;
         camindex = 0;
         numactors = 0;
         curactor = -1;
@@ -928,20 +1039,22 @@ namespace cutscene
         vector<int> models;
         vector<subtitle> subs;
         vector<image> imgs;
-        vector<audio> aus;  // experimental audio support
+        vector<audio> aus; 
         vector<postfx> fx;
+        vector<csmapmodel> mms;
 
         int maxa = -1;
         int offset = 0;
 
-        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx)) return;
+        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx, &mms)) return;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
 
         loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
         loopv(subtitles) offset = max(offset, subtitles[i].start + subtitles[i].duration);
         loopv(images) offset = max(offset, images[i].start + images[i].duration);
-        loopv(audios) offset = max(offset, audios[i].start + audios[i].duration); // experimental audio support 
+        loopv(audios) offset = max(offset, audios[i].start + audios[i].duration); 
         loopv(postfxs) offset = max(offset, postfxs[i].start + postfxs[i].duration);
+        loopv(csmapmodels) offset = max(offset, csmapmodels[i].start + csmapmodels[i].duration);
         loopv(cam)
         {
             frame fr = cam[i];
@@ -985,7 +1098,6 @@ namespace cutscene
             images.add(im);
         }
 
-        // experimental audio support
         loopv(aus)
         {
             audio au = aus[i];
@@ -996,11 +1108,18 @@ namespace cutscene
             audios.add(au);
         }
 
-        loopv(fx)
+       loopv(fx)
+       {
+           postfx px = fx[i];
+           px.start += offset;
+           postfxs.add(px);
+       }
+
+        loopv(mms)
         {
-            postfx px = fx[i];
-            px.start += offset;
-            postfxs.add(px);
+            csmapmodel mm = mms[i];
+            mm.start += offset;
+            csmapmodels.add(mm);
         }
 
         loopi(models.length()) if (i < actormodels.length()) actormodels[i] = models[i];
@@ -1016,8 +1135,9 @@ namespace cutscene
         loopi(numactors) actorindex[i] = 0;
         subtitleindex = 0;
         imageindex = 0;
-        audioindex = 0;  // experimental audio support
+        audioindex = 0; 
         postfxindex = 0;
+        mapmodelindex = 0;
         conoutf(CON_DEBUG, "cutscene restarted");
     }
 
@@ -1040,17 +1160,18 @@ namespace cutscene
         loopi(numactors) actorindex[i] = 0;
         while (camindex < cameraframes.length() && cameraframes[camindex].time < millis) camindex++;
         loopi(numactors) while (actorindex[i] < actorframes[i].length() && actorframes[i][actorindex[i]].time < millis) actorindex[i]++;
+       
         subtitleindex = 0;
         imageindex = 0;
         postfxindex = 0;
-
-        // experimental audio support
+        mapmodelindex = 0;
         audioindex = 0;
-        while (audioindex < audios.length() && audios[audioindex].start + audios[audioindex].duration <= millis) audioindex++;
 
+        while (audioindex < audios.length() && audios[audioindex].start + audios[audioindex].duration <= millis) audioindex++;
         while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start + subtitles[subtitleindex].duration <= millis) subtitleindex++;
         while (imageindex < images.length() && images[imageindex].start + images[imageindex].duration <= millis) imageindex++;
         while (postfxindex < postfxs.length() && postfxs[postfxindex].start + postfxs[postfxindex].duration <= millis) postfxindex++;
+        while (mapmodelindex < csmapmodels.length() && csmapmodels[mapmodelindex].start + csmapmodels[mapmodelindex].duration <= millis) mapmodelindex++;
 
         int playtime = millis;
 
@@ -1346,6 +1467,26 @@ namespace cutscene
             hudquad(images[i].x, images[i].y, tex->w, tex->h);
             pophudmatrix();
             hudshader->set();
+        }
+    }
+
+    void rendermapmodels()
+    {
+        if(csmapmodels.empty() || !playing) return;
+        int curms = paused ? pausestart - starttime : lastmillis - starttime;
+        for(int i = mapmodelindex; i < csmapmodels.length() && curms >= csmapmodels[i].start; ++i)
+        {
+            if(curms > csmapmodels[i].start + csmapmodels[i].duration) continue;
+            csmapmodel &mm = csmapmodels[i];
+            vector<int> anims; findanims(mm.anim, anims);
+            int anim = anims.empty() ? ANIM_MAPMODEL|ANIM_LOOP : (anims[0]|ANIM_LOOP);
+            model* mdl = loadmodel(mm.path);
+            if (mdl)
+            {
+                mdl->scale = mm.scale;
+                mdl->collide = mm.collide != 0;
+            }
+            rendermodel(NULL, mm.path, anim, mm.pos, mm.yaw, mm.pitch, MDL_LIGHT | MDL_CULL_VFC | MDL_CULL_DIST | MDL_CULL_OCCLUDED);
         }
     }
 

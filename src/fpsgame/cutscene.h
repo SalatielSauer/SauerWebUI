@@ -57,6 +57,9 @@ namespace cutscene
     // render active images
     void renderimages();
 
+    // render active mapmodels
+    void rendermapmodels();
+
     // store current camera settings for later interpolation
     void lerpcamfrom();
 

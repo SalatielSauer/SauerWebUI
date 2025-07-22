@@ -368,6 +368,7 @@ namespace game
 
         cutscene::rendercamerapath(); // SauerWUI - cutscene playback
         cutscene::rendercamera(); // SauerWUI - cutscene playback
+        cutscene::rendermapmodels(); // SauerWUI - cutscene mapmodels
 
         if(cmode) cmode->rendergame();
 
