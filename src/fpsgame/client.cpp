@@ -2219,6 +2219,7 @@ namespace game
     ICOMMAND(cutsceneplaybackstart, "sss", (char* f, char* s, char* e), cutscene::playbackstart(f, parsetime(s), parsetime(e)));
     ICOMMAND(cutscenerecordstart, "s", (char *f), cutscene::recordstart(f));
     ICOMMAND(cutscenerecordover, "s", (char* f), cutscene::recordover(f));
+    ICOMMAND(cutscenerecordcontinue, "", (), cutscene::recordcontinue());
     ICOMMAND(cutscenerecordpause, "", (), cutscene::pause());
     ICOMMAND(cutscenerecordend, "", (), cutscene::stop());
     ICOMMAND(cutscenerecordload, "s", (char *f), cutscene::load(f));

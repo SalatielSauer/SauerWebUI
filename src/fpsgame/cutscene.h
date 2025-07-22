@@ -18,6 +18,9 @@ namespace cutscene
     // record on top of an existing cutscene
     void recordover(const char* file);
 
+    // continue recording from the current cutscene position
+    void recordcontinue();
+
     // toggle pause state for playback or recording
     void pause();
 

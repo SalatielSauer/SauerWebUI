@@ -184,6 +184,7 @@ namespace cutscene
     static int numactors = 0, curactor = -1;
     static bool playing = false, recording = false, paused = false, usecamera = true;
     static bool showcameramodel = false;
+    static bool appendframes = false;
     static frame cameraprev;
     static bool havecamera = false;
     static frame lerpcamstart;
@@ -733,6 +734,7 @@ namespace cutscene
         playing = false;
         recording = true;
         paused = false;
+        appendframes = false;
         detachedcamera = true;
         conoutf(CON_DEBUG, "recording cutscene to %s", file);
     }
@@ -855,9 +857,61 @@ namespace cutscene
         playing = true;
         recording = true;
         paused = false;
+        appendframes = false;
         usecamera = false;
         detachedcamera = false;
         conoutf(CON_DEBUG, "recording over cutscene %s", file);
+    }
+
+    void recordcontinue()
+    {
+        if (!cutscenecurrentfile[0])
+        {
+            conoutf(CON_ERROR, "no cutscene loaded");
+            return;
+        }
+
+        if (outfile) { delete outfile; outfile = NULL; }
+
+        bool spec = (game::player1->state == CS_SPECTATOR);
+        int curms = paused ? pausestart - starttime : lastmillis - starttime;
+
+        if (spec)
+        {
+            loopvrev(cameraframes) if (cameraframes[i].time >= curms) cameraframes.remove(i);
+        }
+
+        int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
+        extendtime(lasttime, actorframes);
+        extendtime(lasttime, subtitles);
+        extendtime(lasttime, images);
+        extendtime(lasttime, audios);
+        extendtime(lasttime, postfxs);
+        extendtime(lasttime, csmapmodels);
+        extendtime(lasttime, runcommands);
+        endtime = lasttime;
+
+        updateframeslen();
+
+        outfile = openfile(path(filename, true), "w");
+        if (!outfile)
+        {
+            conoutf(CON_ERROR, "cannot open %s for recording", filename);
+            return;
+        }
+
+        writeexisting(outfile, false);
+
+        settime(curms);
+
+        playing = true;
+        recording = true;
+        paused = false;
+        appendframes = true;
+        usecamera = !spec;
+        detachedcamera = false;
+
+        conoutf(CON_DEBUG, "continuing cutscene recording %s", filename);
     }
 
     static void updatemapmodels()
@@ -917,6 +971,7 @@ namespace cutscene
                 if (outfile) writeframe(outfile, fr);
             }
             updateframeslen();
+            if (appendframes && now > endtime) endtime = now;
         }
         //else showcameramodel = false;
         if (playing && !paused)
@@ -1022,6 +1077,7 @@ namespace cutscene
         if (!isactive() && actors.empty()) return;
         playing = recording = false;
         paused = false;
+        appendframes = false;
         pauseframes.shrink(0);
         cameraframes.shrink(0);
         actorframes.shrink(0);
