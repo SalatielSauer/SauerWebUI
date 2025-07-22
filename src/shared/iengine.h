@@ -155,6 +155,7 @@ extern void executeret(const char *p, tagval &result = *commandret);
 extern void executeret(ident *id, tagval *args, int numargs, bool lookup = false, tagval &result = *commandret);
 extern char *executestr(const uint *code);
 extern char *executestr(const char *p);
+extern char *executestr(const char* p, tagval* args, int numargs); // SauerWUI
 extern char *executestr(ident *id, tagval *args, int numargs, bool lookup = false);
 extern char *execidentstr(const char *name, bool lookup = false);
 extern int execute(const uint *code);

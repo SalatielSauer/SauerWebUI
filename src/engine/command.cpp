@@ -2461,6 +2461,26 @@ char *executestr(const char *p)
     return result.s;
 }
 
+// SauerWUI
+char* executestr(const char* p, tagval* args, int numargs)
+{
+    vector<uint> code;
+    code.reserve(64);
+    compilemain(code, p, VAL_ANY);
+    identstack argstack[MAXARGS];
+    loopi(numargs) pusharg(*identmap[i], args[i], argstack[i]);
+    int oldargs = _numargs;
+    _numargs = numargs;
+    tagval result;
+    runcode(code.getbuf() + 1, result);
+    if (int(code[0]) >= 0x100) code.disown();
+    loopi(numargs) poparg(*identmap[i]);
+    _numargs = oldargs;
+    if (result.type == VAL_NULL) return NULL;
+    forcestr(result);
+    return result.s;
+}
+
 char *executestr(ident *id, tagval *args, int numargs, bool lookup)
 {
     tagval result; 
