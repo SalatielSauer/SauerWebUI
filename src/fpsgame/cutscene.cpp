@@ -88,6 +88,15 @@ namespace cutscene
         int collide;
     };
 
+    struct runcommand
+    {
+        int frame;
+        int start;
+        int duration;
+        string script;
+        bool executed;
+    };
+
     static void applyframe(fpsent* d, const frame& fr, const frame* prev)
     {
         d->o = fr.pos;
@@ -158,9 +167,13 @@ namespace cutscene
     static vector<csmapmodel> csmapmodels;
     static int mapmodelindex = 0;
 
+    static vector<runcommand> runcommands;
+    static int runcommandindex = 0;
+
     static void updatemapmodels();
     static void updateaudios(int playtime);
     static void updatepostfxs(int playtime);
+    static void updateruncommands(int playtime);
     static void seekaudios(int playtime);
 
     static vector<fpsent*> actors;
@@ -247,12 +260,13 @@ namespace cutscene
         loopv(audios) f->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
         loopv(actormodels) f->printf("actormodel %d %d\n", i, actormodels[i]);
         loopv(csmapmodels) f->printf("mapmodel %d \"%s\" [%s] %d\n", csmapmodels[i].frame, csmapmodels[i].path, csmapmodels[i].script, csmapmodels[i].duration);
+        loopv(runcommands) f->printf("runcommand %d [%s] %d\n", runcommands[i].frame, runcommands[i].script, runcommands[i].duration);
         loopv(cameraframes) writeframe(f, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(f, actorframes[i][j]);
         delete f;
     }
 
-    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL, vector<postfx>* fx = NULL, vector<csmapmodel>* mms = NULL)
+    static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL, vector<postfx>* fx = NULL, vector<csmapmodel>* mms = NULL, vector<runcommand>* rcs = NULL)
     {
         size_t len = 0;
         char* buf = loadfile(path(formatfile(fn), true), &len);
@@ -401,6 +415,28 @@ namespace cutscene
                 if(!line) break;
                 continue;
             }
+            else if (!strncmp(line, "runcommand", 10))
+            {
+                if (rcs)
+                {
+                    runcommand rc;
+                    rc.start = 0;
+                    rc.frame = 0;
+                    rc.duration = 0;
+                    rc.executed = false;
+                    int n = sscanf(line, "runcommand %d [%255[^]]] %d", &rc.frame, rc.script, &rc.duration);
+                    if (n >= 2)
+                    {
+                        if (n < 3) rc.duration = 0;
+                        int len = unescapestring(rc.script, rc.script, rc.script + strlen(rc.script));
+                        rc.script[len] = '\0';
+                        rcs->add(rc);
+                    }
+                }
+                line = next;
+                if(!line) break;
+                continue;
+            }
             else { line = next; if (!line) break; continue; }
 
             if (fr.actor < 0) cam.add(fr);
@@ -465,6 +501,16 @@ namespace cutscene
             }
         }
 
+        if (rcs)
+        {
+            loopv((*rcs))
+            {
+                runcommand &rc = (*rcs)[i];
+                if (cam.inrange(rc.frame)) rc.start = cam[rc.frame].time;
+                else rc.start = 0;
+            }
+        }
+
         delete[] buf;
         return true;
     }
@@ -525,10 +571,11 @@ namespace cutscene
         vector<audio> aus;
         vector<postfx> fx;
         vector<csmapmodel> mms;
+        vector<runcommand> rcs;
 
         int maxactor = -1;
 
-        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx, &mms))
+        if (!readframes(file, cam, acts, models, maxactor, &subs, &imgs, &aus, &fx, &mms, &rcs))
         {
             conoutf(CON_ERROR, "could not load cutscene %s", file);
             return;
@@ -551,11 +598,13 @@ namespace cutscene
 
         postfxs.move(fx);
         csmapmodels.move(mms);
+        runcommands.move(rcs);
         mapmodelindex = 0;
         subtitleindex = 0;
         imageindex = 0;
         audioindex = 0;
         postfxindex = 0;
+        runcommandindex = 0;
         numactors = maxactor + 1;
         while (actorframes.length() < numactors) actorframes.add();
         actors.shrink(0);
@@ -583,12 +632,14 @@ namespace cutscene
         loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration);
         loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
         loopv(csmapmodels) lasttime = max(lasttime, csmapmodels[i].start + csmapmodels[i].duration);
+        loopv(runcommands) lasttime = max(lasttime, runcommands[i].start + runcommands[i].duration);
         loopi(numactors) actorindex[i] = 0;
 
         endtime = endms > 0 ? min(endms, lasttime) : lasttime;
         starttime = lastmillis;
         camindex = 0;
         subtitleindex = imageindex = audioindex = postfxindex = 0;
+        runcommandindex = 0;
         playing = true;
         recording = false;
         paused = false;
@@ -765,6 +816,7 @@ namespace cutscene
         loopv(actormodels) outfile->printf("actormodel %d %d\n", i, actormodels[i]);
         loopv(csmapmodels) outfile->printf("mapmodel %d \"%s\" [%s] %d\n", csmapmodels[i].frame, csmapmodels[i].path, csmapmodels[i].script, csmapmodels[i].duration);
         loopv(postfxs) outfile->printf("postfx %d [%s] %d %f %f %f %f\n", postfxs[i].frame, postfxs[i].script, postfxs[i].duration, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
+        loopv(runcommands) outfile->printf("runcommand %d [%s] %d\n", runcommands[i].frame, runcommands[i].script, runcommands[i].duration);
         if (!spec) loopv(cameraframes) writeframe(outfile, cameraframes[i]);
         loopv(actorframes) loopvj(actorframes[i]) writeframe(outfile, actorframes[i][j]);
 
@@ -869,6 +921,7 @@ namespace cutscene
 
             updateaudios(playtime);
             updatepostfxs(playtime);
+            updateruncommands(playtime);
 
             updatemapmodels();
 
@@ -961,10 +1014,12 @@ namespace cutscene
 
         postfxs.shrink(0);
         csmapmodels.shrink(0);
+        runcommands.shrink(0);
 
         subtitleindex = 0;
         imageindex = 0;
         audioindex = 0;
+        runcommandindex = 0;
         camindex = 0;
         numactors = 0;
         curactor = -1;
@@ -1002,19 +1057,21 @@ namespace cutscene
         vector<audio> aus; 
         vector<postfx> fx;
         vector<csmapmodel> mms;
+        vector<runcommand> rcs;
 
         int maxa = -1;
         int offset = 0;
 
-        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx, &mms)) return;
+        if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx, &mms, &rcs)) return;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
 
         loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
         loopv(subtitles) offset = max(offset, subtitles[i].start + subtitles[i].duration);
         loopv(images) offset = max(offset, images[i].start + images[i].duration);
-        loopv(audios) offset = max(offset, audios[i].start + audios[i].duration); 
+        loopv(audios) offset = max(offset, audios[i].start + audios[i].duration);
         loopv(postfxs) offset = max(offset, postfxs[i].start + postfxs[i].duration);
         loopv(csmapmodels) offset = max(offset, csmapmodels[i].start + csmapmodels[i].duration);
+        loopv(runcommands) offset = max(offset, runcommands[i].start + runcommands[i].duration);
         loopv(cam)
         {
             frame fr = cam[i];
@@ -1075,11 +1132,19 @@ namespace cutscene
            postfxs.add(px);
        }
 
-        loopv(mms)
+       loopv(mms)
+       {
+           csmapmodel mm = mms[i];
+           mm.start += offset;
+           csmapmodels.add(mm);
+       }
+
+        loopv(rcs)
         {
-            csmapmodel mm = mms[i];
-            mm.start += offset;
-            csmapmodels.add(mm);
+            runcommand rc = rcs[i];
+            rc.start += offset;
+            rc.executed = false;
+            runcommands.add(rc);
         }
 
         loopi(models.length()) if (i < actormodels.length()) actormodels[i] = models[i];
@@ -1095,9 +1160,11 @@ namespace cutscene
         loopi(numactors) actorindex[i] = 0;
         subtitleindex = 0;
         imageindex = 0;
-        audioindex = 0; 
+        audioindex = 0;
         postfxindex = 0;
         mapmodelindex = 0;
+        runcommandindex = 0;
+        loopv(runcommands) runcommands[i].executed = false;
         conoutf(CON_DEBUG, "cutscene restarted");
     }
 
@@ -1126,12 +1193,15 @@ namespace cutscene
         postfxindex = 0;
         mapmodelindex = 0;
         audioindex = 0;
+        runcommandindex = 0;
+        loopv(runcommands) runcommands[i].executed = false;
 
         while (audioindex < audios.length() && audios[audioindex].start + audios[audioindex].duration <= millis) audioindex++;
         while (subtitleindex < subtitles.length() && subtitles[subtitleindex].start + subtitles[subtitleindex].duration <= millis) subtitleindex++;
         while (imageindex < images.length() && images[imageindex].start + images[imageindex].duration <= millis) imageindex++;
         while (postfxindex < postfxs.length() && postfxs[postfxindex].start + postfxs[postfxindex].duration <= millis) postfxindex++;
         while (mapmodelindex < csmapmodels.length() && csmapmodels[mapmodelindex].start + csmapmodels[mapmodelindex].duration <= millis) mapmodelindex++;
+        while (runcommandindex < runcommands.length() && runcommands[runcommandindex].start + runcommands[runcommandindex].duration <= millis) runcommandindex++;
 
         int playtime = millis;
 
@@ -1140,6 +1210,7 @@ namespace cutscene
 
         // apply any post effects for the current time
         updatepostfxs(playtime);
+        updateruncommands(playtime);
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
     }
 
@@ -1563,5 +1634,31 @@ namespace cutscene
             delete[] sh;
         }
         if (!addedfx) execute("clearpostfx");
+    }
+
+    static void updateruncommands(int playtime)
+    {
+        for (int i = runcommandindex; i < runcommands.length() && playtime >= runcommands[i].start; ++i)
+        {
+            runcommand &rc = runcommands[i];
+            if (rc.duration)
+            {
+                if (playtime < rc.start + rc.duration)
+                {
+                    tagval args[1];
+                    args[0].setint(playtime - rc.start);
+                    executestr(rc.script, args, 1);
+                }
+            }
+            else if (!rc.executed)
+            {
+                tagval args[1];
+                args[0].setint(playtime - rc.start);
+                executestr(rc.script, args, 1);
+                rc.executed = true;
+            }
+        }
+        while (runcommandindex < runcommands.length() && playtime >= runcommands[runcommandindex].start + (runcommands[runcommandindex].duration ? runcommands[runcommandindex].duration : 1))
+            runcommandindex++;
     }
 }
