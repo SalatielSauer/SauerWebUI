@@ -266,6 +266,46 @@ namespace cutscene
         delete f;
     }
 
+    template<class T>
+    static inline void removeafter(vector<T>& v, int startms)
+    {
+        loopvrev(v) if (v[i].start >= startms) v.remove(i);
+    }
+
+    static inline void truncateactorframes(vector< vector<frame> >& acts, int startms)
+    {
+        loopv(acts)
+        {
+            int n = acts[i].length();
+            while (n > 0 && acts[i][n - 1].time > startms) n--;
+            acts[i].setsize(n);
+        }
+    }
+
+    template<class T>
+    static inline void extendtime(int& t, const vector<T>& v)
+    {
+        loopv(v) t = max(t, v[i].start + v[i].duration);
+    }
+
+    static inline void extendtime(int& t, vector< vector<frame> >& acts)
+    {
+        loopv(acts) if (acts[i].length()) t = max(t, acts[i].last().time);
+    }
+
+    static void writeexisting(stream* f, bool spec)
+    {
+        loopv(subtitles) f->printf("subtitle %d [%s] %d %d %d %f\n", subtitles[i].frame, subtitles[i].script, subtitles[i].x, subtitles[i].y, subtitles[i].duration, subtitles[i].size);
+        loopv(images) f->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
+        loopv(audios) f->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
+        loopv(actormodels) f->printf("actormodel %d %d\n", i, actormodels[i]);
+        loopv(csmapmodels) f->printf("mapmodel %d \"%s\" [%s] %d\n", csmapmodels[i].frame, csmapmodels[i].path, csmapmodels[i].script, csmapmodels[i].duration);
+        loopv(postfxs) f->printf("postfx %d [%s] %d %f %f %f %f\n", postfxs[i].frame, postfxs[i].script, postfxs[i].duration, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
+        loopv(runcommands) f->printf("runcommand %d [%s] %d\n", runcommands[i].frame, runcommands[i].script, runcommands[i].duration);
+        if (!spec) loopv(cameraframes) writeframe(f, cameraframes[i]);
+        loopv(actorframes) loopvj(actorframes[i]) writeframe(f, actorframes[i][j]);
+    }
+
     static bool readframes(const char* fn, vector<frame>& cam, vector< vector<frame> >& actors, vector<int>& models, int& maxactor, vector<subtitle>* subs = NULL, vector<image>* imgs = NULL, vector<audio>* aus = NULL, vector<postfx>* fx = NULL, vector<csmapmodel>* mms = NULL, vector<runcommand>* rcs = NULL)
     {
         size_t len = 0;
@@ -626,14 +666,13 @@ namespace cutscene
         cutscenecurrentfile = newstring(filename);
         startms = max(startms, 0);
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
-        loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
-        loopv(subtitles) lasttime = max(lasttime, subtitles[i].start + subtitles[i].duration);
-        loopv(images) lasttime = max(lasttime, images[i].start + images[i].duration);
-        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration);
-        loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
-        loopv(csmapmodels) lasttime = max(lasttime, csmapmodels[i].start + csmapmodels[i].duration);
-        loopv(runcommands) lasttime = max(lasttime, runcommands[i].start + runcommands[i].duration);
-        loopi(numactors) actorindex[i] = 0;
+        extendtime(lasttime, actorframes);
+        extendtime(lasttime, subtitles);
+        extendtime(lasttime, images);
+        extendtime(lasttime, audios);
+        extendtime(lasttime, postfxs);
+        extendtime(lasttime, csmapmodels);
+        extendtime(lasttime, runcommands);
 
         endtime = endms > 0 ? min(endms, lasttime) : lasttime;
         starttime = lastmillis;
@@ -773,12 +812,13 @@ namespace cutscene
 
         int lasttime = cameraframes.empty() ? 0 : cameraframes.last().time;
        
-        loopv(actorframes) if (actorframes[i].length()) lasttime = max(lasttime, actorframes[i].last().time);
-        loopv(subtitles) lasttime = max(lasttime, subtitles[i].start + subtitles[i].duration);
-        loopv(images) lasttime = max(lasttime, images[i].start + images[i].duration);
-        loopv(audios) lasttime = max(lasttime, audios[i].start + audios[i].duration);
-        loopv(postfxs) lasttime = max(lasttime, postfxs[i].start + postfxs[i].duration);
-        loopv(csmapmodels) lasttime = max(lasttime, csmapmodels[i].start + csmapmodels[i].duration);
+        extendtime(lasttime, actorframes);
+        extendtime(lasttime, subtitles);
+        extendtime(lasttime, images);
+        extendtime(lasttime, audios);
+        extendtime(lasttime, postfxs);
+        extendtime(lasttime, csmapmodels);
+        extendtime(lasttime, runcommands);
 
         endtime = lasttime;
         starttime = lastmillis;
@@ -810,15 +850,7 @@ namespace cutscene
             return;
         }
 
-        loopv(subtitles) outfile->printf("subtitle %d [%s] %d %d %d %f\n", subtitles[i].frame, subtitles[i].script, subtitles[i].x, subtitles[i].y, subtitles[i].duration, subtitles[i].size);
-        loopv(images) outfile->printf("image %d \"%s\" %d %d %d %f\n", images[i].frame, images[i].path, images[i].x, images[i].y, images[i].duration, images[i].scale);
-        loopv(audios) outfile->printf("audio %d \"%s\" %d %d %d [%s]\n", audios[i].frame, audios[i].path, audios[i].from, audios[i].to, audios[i].duration, audios[i].cond);
-        loopv(actormodels) outfile->printf("actormodel %d %d\n", i, actormodels[i]);
-        loopv(csmapmodels) outfile->printf("mapmodel %d \"%s\" [%s] %d\n", csmapmodels[i].frame, csmapmodels[i].path, csmapmodels[i].script, csmapmodels[i].duration);
-        loopv(postfxs) outfile->printf("postfx %d [%s] %d %f %f %f %f\n", postfxs[i].frame, postfxs[i].script, postfxs[i].duration, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
-        loopv(runcommands) outfile->printf("runcommand %d [%s] %d\n", runcommands[i].frame, runcommands[i].script, runcommands[i].duration);
-        if (!spec) loopv(cameraframes) writeframe(outfile, cameraframes[i]);
-        loopv(actorframes) loopvj(actorframes[i]) writeframe(outfile, actorframes[i][j]);
+        writeexisting(outfile, spec);
 
         playing = true;
         recording = true;
@@ -1065,13 +1097,13 @@ namespace cutscene
         if (!readframes(formatfile(file), cam, acts, models, maxa, &subs, &imgs, &aus, &fx, &mms, &rcs)) return;
         if (!cameraframes.empty()) offset = max(offset, cameraframes.last().time);
 
-        loopv(actorframes) if (actorframes[i].length()) offset = max(offset, actorframes[i].last().time);
-        loopv(subtitles) offset = max(offset, subtitles[i].start + subtitles[i].duration);
-        loopv(images) offset = max(offset, images[i].start + images[i].duration);
-        loopv(audios) offset = max(offset, audios[i].start + audios[i].duration);
-        loopv(postfxs) offset = max(offset, postfxs[i].start + postfxs[i].duration);
-        loopv(csmapmodels) offset = max(offset, csmapmodels[i].start + csmapmodels[i].duration);
-        loopv(runcommands) offset = max(offset, runcommands[i].start + runcommands[i].duration);
+        extendtime(offset, actorframes);
+        extendtime(offset, subtitles);
+        extendtime(offset, images);
+        extendtime(offset, audios);
+        extendtime(offset, postfxs);
+        extendtime(offset, csmapmodels);
+        extendtime(offset, runcommands);
         loopv(cam)
         {
             frame fr = cam[i];
