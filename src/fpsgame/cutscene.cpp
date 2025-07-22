@@ -782,7 +782,9 @@ namespace cutscene
         {
             if (curms > csmapmodels[i].start + csmapmodels[i].duration) continue;
             csmapmodel& mm = csmapmodels[i];
-            char* ret = mm.script[0] ? executestr(mm.script) : NULL;
+            tagval args[1];
+            args[0].setint(curms - mm.start);
+            char* ret = mm.script[0] ? executestr(mm.script, args, 1) : NULL;
             const char* vals = ret && *ret ? ret : "512 512 512 0 0 20 mapmodel 1";
             char anim[64] = "mapmodel";
             sscanf(vals, "%f %f %f %f %f %f %63s %d", &mm.pos.x, &mm.pos.y, &mm.pos.z, &mm.yaw, &mm.pitch, &mm.scale, anim, &mm.collide);
@@ -868,7 +870,9 @@ namespace cutscene
                 if (playtime > audios[i].start + audios[i].duration) continue;
                 if (audios[i].cond[0])
                 {
-                    char* ret = executestr(audios[i].cond);
+                    tagval __args[1];
+                    __args[0].setint(playtime - audios[i].start);
+                    char* ret = executestr(audios[i].cond, __args, 1);
                     bool ok = ret && atoi(ret) != 0;
                     delete[] ret;
                     if (!ok) continue;
@@ -899,7 +903,9 @@ namespace cutscene
             for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
             {
                 if (playtime > postfxs[i].start + postfxs[i].duration) continue;
-                char* sh = executestr(postfxs[i].script);
+                tagval __args[1];
+                __args[0].setint(playtime - postfxs[i].start);
+                char* sh = executestr(postfxs[i].script, __args, 1);
                 if (sh && *sh)
                 {
                     defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
@@ -1181,7 +1187,9 @@ namespace cutscene
             if (playtime < audios[i].start || playtime >= audios[i].start + audios[i].duration) continue;
             if (audios[i].cond[0])
             {
-                char* ret = executestr(audios[i].cond);
+                tagval __args[1];
+                __args[0].setint(playtime - audios[i].start);
+                char* ret = executestr(audios[i].cond, __args, 1);
                 bool ok = ret && atoi(ret) != 0;
                 delete[] ret;
                 if (!ok) continue;
@@ -1213,7 +1221,9 @@ namespace cutscene
         for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
         {
             if (playtime > postfxs[i].start + postfxs[i].duration) continue;
-            char* sh = executestr(postfxs[i].script);
+            tagval __args[1];
+            __args[0].setint(playtime - postfxs[i].start);
+            char* sh = executestr(postfxs[i].script, __args, 1);
             if (sh && *sh)
             {
                 defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
@@ -1431,7 +1441,9 @@ namespace cutscene
         for (int i = subtitleindex; i < subtitles.length() && curms >= subtitles[i].start; ++i)
         {
             if (curms > subtitles[i].start + subtitles[i].duration) continue;
-            char* text = executestr(subtitles[i].script);
+            tagval __args[1];
+            __args[0].setint(curms - subtitles[i].start);
+            char* text = executestr(subtitles[i].script, __args, 1);
             if (text && *text)
             {
                 pushhudmatrix();
