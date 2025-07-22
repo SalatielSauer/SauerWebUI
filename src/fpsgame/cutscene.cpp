@@ -159,6 +159,9 @@ namespace cutscene
     static int mapmodelindex = 0;
 
     static void updatemapmodels();
+    static void updateaudios(int playtime);
+    static void updatepostfxs(int playtime);
+    static void seekaudios(int playtime);
 
     static vector<fpsent*> actors;
     static vector<int> actorindex;
@@ -864,57 +867,8 @@ namespace cutscene
                 }
             }
 
-            while (audioindex < audios.length() && playtime >= audios[audioindex].start + audios[audioindex].duration) audioindex++;
-            for(int i = audioindex; i < audios.length() && playtime >= audios[i].start; ++i)
-            {
-                if (playtime > audios[i].start + audios[i].duration) continue;
-                if (audios[i].cond[0])
-                {
-                    tagval __args[1];
-                    __args[0].setint(playtime - audios[i].start);
-                    char* ret = executestr(audios[i].cond, __args, 1);
-                    bool ok = ret && atoi(ret) != 0;
-                    delete[] ret;
-                    if (!ok) continue;
-                }
-                if (audios[i].channel >= 0 && Mix_Playing(audios[i].channel)) continue;
-                if (audios[i].channel >= 0 && !Mix_Playing(audios[i].channel))
-                {
-                    if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
-                    audios[i].channel = -1;
-                }
-                if(!audios[i].chunk) audios[i].chunk = Mix_LoadWAV(findfile(audios[i].path, "rb"));
-                if(!audios[i].chunk) continue;
-                int freq=0, chans=0; Uint16 fmt=0; Mix_QuerySpec(&freq,&fmt,&chans);
-                int bps = freq * ((fmt & 0xFF)/8) * chans;
-                Uint32 startb = Uint32((double)audios[i].from * bps / 1000.0);
-                Uint32 endb = audios[i].to > audios[i].from ? Uint32((double)audios[i].to * bps / 1000.0) : audios[i].chunk->alen;
-                if (endb > audios[i].chunk->alen) endb = audios[i].chunk->alen;
-                if (startb >= endb) continue;
-                if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
-                audios[i].clip = Mix_QuickLoad_RAW(audios[i].chunk->abuf + startb, endb - startb);
-                if (!audios[i].clip) continue;
-                audios[i].clip->allocated = 0;
-                audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, (audios[i].to > audios[i].from) ? audios[i].to - audios[i].from : -1);
-            }
-
-            while (postfxindex < postfxs.length() && playtime >= postfxs[postfxindex].start + postfxs[postfxindex].duration) postfxindex++;
-            bool addedfx = false;
-            for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
-            {
-                if (playtime > postfxs[i].start + postfxs[i].duration) continue;
-                tagval __args[1];
-                __args[0].setint(playtime - postfxs[i].start);
-                char* sh = executestr(postfxs[i].script, __args, 1);
-                if (sh && *sh)
-                {
-                    defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
-                    execute(cmd);
-                    addedfx = true;
-                }
-                delete[] sh;
-            }
-            if (!addedfx) execute("clearpostfx");
+            updateaudios(playtime);
+            updatepostfxs(playtime);
 
             updatemapmodels();
 
@@ -1182,57 +1136,10 @@ namespace cutscene
         int playtime = millis;
 
         // start any audio that should be active at this time
-        loopi(audios.length())
-        {
-            if (playtime < audios[i].start || playtime >= audios[i].start + audios[i].duration) continue;
-            if (audios[i].cond[0])
-            {
-                tagval __args[1];
-                __args[0].setint(playtime - audios[i].start);
-                char* ret = executestr(audios[i].cond, __args, 1);
-                bool ok = ret && atoi(ret) != 0;
-                delete[] ret;
-                if (!ok) continue;
-            }
-            if (!audios[i].chunk) audios[i].chunk = Mix_LoadWAV(findfile(audios[i].path, "rb"));
-            if (!audios[i].chunk) continue;
-            int freq = 0, chans = 0; Uint16 fmt = 0; Mix_QuerySpec(&freq, &fmt, &chans);
-            int samplesize = ((fmt & 0xFF) / 8) * chans;
-            int bps = freq * samplesize;
-            int offsetms = clamp(playtime - audios[i].start, 0, audios[i].duration);
-            Uint32 startb = Uint32((double)(audios[i].from + offsetms) * bps / 1000.0);
-            Uint32 endb = audios[i].to > audios[i].from ? Uint32((double)audios[i].to * bps / 1000.0) : audios[i].chunk->alen;
-            if (endb > audios[i].chunk->alen) endb = audios[i].chunk->alen;
-            startb -= startb % samplesize;
-            endb -= endb % samplesize;
-            if (startb >= endb) continue;
-            if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
-            audios[i].clip = Mix_QuickLoad_RAW(audios[i].chunk->abuf + startb, endb - startb);
-            if (!audios[i].clip) continue;
-            audios[i].clip->allocated = 0;
-            int ticks = audios[i].duration - offsetms;
-            if (audios[i].to > audios[i].from) ticks = min(ticks, audios[i].to - audios[i].from - offsetms);
-            if (ticks <= 0) continue;
-            audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, ticks);
-        }
+        seekaudios(playtime);
 
         // apply any post effects for the current time
-        bool addedfx = false;
-        for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
-        {
-            if (playtime > postfxs[i].start + postfxs[i].duration) continue;
-            tagval __args[1];
-            __args[0].setint(playtime - postfxs[i].start);
-            char* sh = executestr(postfxs[i].script, __args, 1);
-            if (sh && *sh)
-            {
-                defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
-                execute(cmd);
-                addedfx = true;
-            }
-            delete[] sh;
-        }
-        if (!addedfx) execute("clearpostfx");
+        updatepostfxs(playtime);
         conoutf(CON_DEBUG, "cutscene time set to %d", millis);
     }
 
@@ -1563,4 +1470,98 @@ namespace cutscene
         return playing && usecamera;
     }
 
+    static void updateaudios(int playtime)
+    {
+        while (audioindex < audios.length() && playtime >= audios[audioindex].start + audios[audioindex].duration) audioindex++;
+        for (int i = audioindex; i < audios.length() && playtime >= audios[i].start; ++i)
+        {
+            if (playtime > audios[i].start + audios[i].duration) continue;
+            if (audios[i].cond[0])
+            {
+                tagval __args[1];
+                __args[0].setint(playtime - audios[i].start);
+                char *ret = executestr(audios[i].cond, __args, 1);
+                bool ok = ret && atoi(ret) != 0;
+                delete[] ret;
+                if (!ok) continue;
+            }
+            if (audios[i].channel >= 0 && Mix_Playing(audios[i].channel)) continue;
+            if (audios[i].channel >= 0 && !Mix_Playing(audios[i].channel))
+            {
+                if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+                audios[i].channel = -1;
+            }
+            if (!audios[i].chunk) audios[i].chunk = Mix_LoadWAV(findfile(audios[i].path, "rb"));
+            if (!audios[i].chunk) continue;
+            int freq = 0, chans = 0; Uint16 fmt = 0; Mix_QuerySpec(&freq, &fmt, &chans);
+            int bps = freq * ((fmt & 0xFF) / 8) * chans;
+            Uint32 startb = Uint32((double)audios[i].from * bps / 1000.0);
+            Uint32 endb = audios[i].to > audios[i].from ? Uint32((double)audios[i].to * bps / 1000.0) : audios[i].chunk->alen;
+            if (endb > audios[i].chunk->alen) endb = audios[i].chunk->alen;
+            if (startb >= endb) continue;
+            if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+            audios[i].clip = Mix_QuickLoad_RAW(audios[i].chunk->abuf + startb, endb - startb);
+            if (!audios[i].clip) continue;
+            audios[i].clip->allocated = 0;
+            audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, (audios[i].to > audios[i].from) ? audios[i].to - audios[i].from : -1);
+        }
+    }
+
+    static void seekaudios(int playtime)
+    {
+        loopi(audios.length())
+        {
+            if (playtime < audios[i].start || playtime >= audios[i].start + audios[i].duration) continue;
+            if (audios[i].cond[0])
+            {
+                tagval __args[1];
+                __args[0].setint(playtime - audios[i].start);
+                char *ret = executestr(audios[i].cond, __args, 1);
+                bool ok = ret && atoi(ret) != 0;
+                delete[] ret;
+                if (!ok) continue;
+            }
+            if (!audios[i].chunk) audios[i].chunk = Mix_LoadWAV(findfile(audios[i].path, "rb"));
+            if (!audios[i].chunk) continue;
+            int freq = 0, chans = 0; Uint16 fmt = 0; Mix_QuerySpec(&freq, &fmt, &chans);
+            int samplesize = ((fmt & 0xFF) / 8) * chans;
+            int bps = freq * samplesize;
+            int offsetms = clamp(playtime - audios[i].start, 0, audios[i].duration);
+            Uint32 startb = Uint32((double)(audios[i].from + offsetms) * bps / 1000.0);
+            Uint32 endb = audios[i].to > audios[i].from ? Uint32((double)audios[i].to * bps / 1000.0) : audios[i].chunk->alen;
+            if (endb > audios[i].chunk->alen) endb = audios[i].chunk->alen;
+            startb -= startb % samplesize;
+            endb -= endb % samplesize;
+            if (startb >= endb) continue;
+            if (audios[i].clip) { Mix_FreeChunk(audios[i].clip); audios[i].clip = NULL; }
+            audios[i].clip = Mix_QuickLoad_RAW(audios[i].chunk->abuf + startb, endb - startb);
+            if (!audios[i].clip) continue;
+            audios[i].clip->allocated = 0;
+            int ticks = audios[i].duration - offsetms;
+            if (audios[i].to > audios[i].from) ticks = min(ticks, audios[i].to - audios[i].from - offsetms);
+            if (ticks <= 0) continue;
+            audios[i].channel = Mix_PlayChannelTimed(-1, audios[i].clip, 0, ticks);
+        }
+    }
+
+    static void updatepostfxs(int playtime)
+    {
+        while (postfxindex < postfxs.length() && playtime >= postfxs[postfxindex].start + postfxs[postfxindex].duration) postfxindex++;
+        bool addedfx = false;
+        for (int i = postfxindex; i < postfxs.length() && playtime >= postfxs[i].start; ++i)
+        {
+            if (playtime > postfxs[i].start + postfxs[i].duration) continue;
+            tagval __args[1];
+            __args[0].setint(playtime - postfxs[i].start);
+            char *sh = executestr(postfxs[i].script, __args, 1);
+            if (sh && *sh)
+            {
+                defformatstring(cmd, "setpostfx %s 0 0 1 %f %f %f %f", sh, postfxs[i].params.x, postfxs[i].params.y, postfxs[i].params.z, postfxs[i].params.w);
+                execute(cmd);
+                addedfx = true;
+            }
+            delete[] sh;
+        }
+        if (!addedfx) execute("clearpostfx");
+    }
 }
