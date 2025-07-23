@@ -940,7 +940,7 @@ namespace cutscene
         if (paused) shaderstate = 2;
         else if (recording) shaderstate = 1;
         else if (playing) shaderstate = 3;
-        GLOBALPARAMI(cutscenestate, shaderstate);
+        GLOBALPARAMI(cutscenestate, shaderstate, currenttime());
         if (recording && !paused)
         {
             showcameramodel = false;
