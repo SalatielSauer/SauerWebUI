@@ -131,6 +131,61 @@ class GithubUpdater {
         return html;
     }
 
+    createNotesDiv(notesText) {
+        const notesDiv = document.createElement('div');
+        const defaultFontSize = '8px';
+        notesDiv.style.fontSize = defaultFontSize;
+        notesDiv.style.maxHeight = '150px';
+        notesDiv.style.overflowY = 'auto';
+        notesDiv.style.overflowX = 'hidden';
+        notesDiv.style.border = '1px dashed rgb(221, 221, 221)';
+        notesDiv.style.padding = '4px';
+        notesDiv.style.borderRadius = '4px';
+        notesDiv.style.background = 'rgb(13 28 41)';
+        notesDiv.style.marginTop = '8px';
+        notesDiv.style.textAlign = 'left';
+        notesDiv.style.boxShadow = '0 0 3px black';
+        notesDiv.style.position = 'relative';
+        notesDiv.innerHTML = this.markdownToHtml(notesText);
+
+        const fsBtn = document.createElement('button');
+        fsBtn.textContent = '⛶ Fullscreen';
+        fsBtn.style.position = 'absolute';
+        fsBtn.style.right = '2px';
+        fsBtn.style.top = '2px';
+        fsBtn.style.fontSize = '8px';
+        fsBtn.style.minWidth = 'auto';
+        fsBtn.title = 'Toggle Fullscreen';
+        fsBtn.onclick = async () => {
+            if (document.fullscreenElement === notesDiv) {
+                await document.exitFullscreen();
+            } else {
+                await notesDiv.requestFullscreen();
+            }
+        };
+
+        const updateFsFont = () => {
+            if (document.fullscreenElement === notesDiv) {
+                const scale = Math.min(window.innerWidth, window.innerHeight);
+                notesDiv.style.fontSize = Math.max(12, scale * 0.02) + 'px';
+            }
+        };
+
+        notesDiv.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement === notesDiv) {
+                fsBtn.textContent = '❮ Exit Fullscreen';
+                updateFsFont();
+                window.addEventListener('resize', updateFsFont);
+            } else {
+                fsBtn.textContent = '⛶ Fullscreen';
+                notesDiv.style.fontSize = defaultFontSize;
+                window.removeEventListener('resize', updateFsFont);
+            }
+        });
+        notesDiv.prepend(fsBtn);
+        return notesDiv;
+    }
+
     async downloadFile(file, li) {
         const url = `${this.rawBase}/${this.config.branch}/${file.filename}`;
         const parts = file.filename.split('/');
@@ -231,19 +286,7 @@ class GithubUpdater {
             body.appendChild(infoDiv);
             body.appendChild(checkBtn);
             if (notesText) {
-                const notesDiv = document.createElement('div');
-                notesDiv.style.fontSize = '8px';
-                notesDiv.style.maxHeight = '150px';
-                notesDiv.style.overflowY = 'auto';
-                notesDiv.style.overflowX = 'hidden';
-                notesDiv.style.border = '1px dashed rgb(221, 221, 221)';
-                notesDiv.style.padding = '4px';
-                notesDiv.style.borderRadius = '4px';
-                notesDiv.style.background = 'rgb(13 28 41)';
-                notesDiv.style.marginTop = '8px';
-                notesDiv.style.textAlign = 'left';
-                notesDiv.style.boxShadow = '0 0 3px black';
-                notesDiv.innerHTML = this.markdownToHtml(notesText);
+                const notesDiv = this.createNotesDiv(notesText);
                 body.appendChild(notesDiv);
             }
             localStorage.setItem(this.storageKey, result.latestSha);
@@ -384,19 +427,7 @@ class GithubUpdater {
         }
 
         if (notesText) {
-            const notesDiv = document.createElement('div');
-            notesDiv.style.fontSize = '8px';
-            notesDiv.style.maxHeight = '150px';
-            notesDiv.style.overflowY = 'auto';
-            notesDiv.style.overflowX = 'hidden';
-            notesDiv.style.border = '1px dashed rgb(221, 221, 221)';
-            notesDiv.style.padding = '4px';
-            notesDiv.style.borderRadius = '4px';
-            notesDiv.style.background = 'rgb(13 28 41)';
-            notesDiv.style.marginTop = '8px';
-            notesDiv.style.textAlign = 'left';
-            notesDiv.style.boxShadow = '0 0 3px black';
-            notesDiv.innerHTML = this.markdownToHtml(notesText);
+            const notesDiv = this.createNotesDiv(notesText);
             body.appendChild(notesDiv);
         }
     }
