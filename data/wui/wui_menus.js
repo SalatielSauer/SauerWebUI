@@ -102,7 +102,7 @@ window._create_menu_browser = _create_menu_browser;
 window.cubescript(`
 nodebug [compareversion = [result 1]]
 
-_packages_version = (compareversion "07-07-2025")
+_packages_version = (compareversion "27-07-2025")
 
 newgui main [guistayopen [
 	if (= $_packages_version 0) [

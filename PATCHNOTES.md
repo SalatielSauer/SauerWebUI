@@ -1,6 +1,51 @@
 ## 🔍 SauerWebUI Patch Notes
 
-### 07/07/2025 📌
+### 27/07/2025 📌
+A new cutscene system with a bunch of commands for all your filmmaker needs:
+<iframe width="460" height="215" src="https://www.youtube.com/embed/k9ephMR1d5U" frameborder="0" allowfullscreen></iframe>
+
+<details>
+  <summary>show cutscene commands</summary>
+
+  - `playcutsceneat <file> <start> <end>`
+  - `cutsceneplaybackstart <file> <start> <end>`
+  - `cutscenerecordstart <file>`
+  - `cutscenerecordover <file>`
+  - `cutscenerecordcontinue`
+  - `cutscenerecordpause`
+  - `cutscenerecordend`
+  - `cutscenerecordload <file>`
+  - `cutscenerecordrestart`
+  - `cutscenerecordsettime <minute:second>`
+  - `cutscenerecordsetframe <frame>`
+  - `cutscenecamdebug <1/0>`
+  - `cutscenecamdebugsize <0.25/4.0>`
+  - `cutscenecamdebugpath <1/0>`
+  - `cutscenecamdebugpathstep <1/100>`
+  - `cutscenecamlerpfrom`
+  - `cutscenecamlerpto <ms>`
+  - `cutscenecamclear <direction>`
+  - `cutsceneactorclear <id>`
+  - `cutscenecurrentframe`
+  - `cutsceneframeslen`
+  - `cutscenecurrentfile`
+  - `cutscenestate <state> <time>`
+</details>
+
+Not only that, cutscenes also allow dynamic display of subtitles, audio, images, and mapmodels!
+
+All part of a custom format supported by SauerWUI: `.ctscn`. See more about cutscenes in the [readme](https://github.com/SalatielSauer/SauerWebUI?tab=readme-ov-file#cutscene-playback).
+
+There is also a new `.obpy` format for exporting maps to Blender, including textures, vcommands, lightmaps, mapvars, and skybox:
+- `writeobpy <name>` (map)
+- `writemmobpy <name>` (mapmodels)
+
+Since it’s a custom format based on .obj, it requires an add-on to be imported into Blender:
+[Blender .obpy Importer](https://gist.github.com/SalatielSauer/397881f744c69688b644d4efffe2ce25).
+
+<hr>
+
+### 07/07/2025
 - `dumpmmodels <name> <optional texture path>`
 - `dumpmaterials <name>`
 

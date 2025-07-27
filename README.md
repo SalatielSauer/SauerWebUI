@@ -92,21 +92,30 @@ It won't work if you install it side by side with a P1xbraten installation (reas
 	<details>
 	<summary>Cutscene Commands</summary>
 
+	- [`cutscene elements`](#cutscene-elements)
 	- [`playcutsceneat <file> <start> <end>`](#playcutsceneat-file-start-end)
 	- [`cutsceneplaybackstart <file> <start> <end>`](#cutsceneplaybackstart-file-start-end)
 	- [`cutscenerecordstart <file>`](#cutscenerecordstart-file)
 	- [`cutscenerecordover <file>`](#cutscenerecordover-file)
+	- [`cutscenerecordcontinue`](#cutscenerecordcontinue)
 	- [`cutscenerecordpause`](#cutscenerecordpause)
 	- [`cutscenerecordend`](#cutscenerecordend)
 	- [`cutscenerecordload <file>`](#cutscenerecordload-file)
 	- [`cutscenerecordrestart`](#cutscenerecordrestart)
 	- [`cutscenerecordsettime <minute:second>`](#cutscenerecordsettime-minute-second)
-	- [`cutscenerecordsettime <frame>`](#cutscenerecordsettime-frame)
+	- [`cutscenerecordsetframe <frame>`](#cutscenerecordsettime-frame)
 	- [`cutscenecamdebug <1/0>`](#cutscenecamdebug-10)
 	- [`cutscenecamdebugsize <0.25/4.0>`](#cutscenecamdebugsize-02540)
 	- [`cutscenecamdebugpath <1/0>`](#cutscenecamdebugpath-10)
 	- [`cutscenecamdebugpathstep <1/100>`](#cutscenecamdebugpathstep-1100)
+	- [`cutscenecamlerpfrom`](#cutscenecamlerpfrom)
+	- [`cutscenecamlerpto <ms>`](#cutscenecamlerpto-ms)
+	- [`cutscenecamclear <direction>`](#cutscenecamclear-direction)
+	- [`cutsceneactorclear <id>`](#cutsceneactorclear-id)
+	- [`cutscenecurrentframe`](#cutscenecurrentframe)
+	- [`cutsceneframeslen`](#cutsceneframeslen)
 	- [`cutscenecurrentfile`](#cutscenecurrentfile)
+	- [`cutscenestate <state> <time>`](#cutscenestate-state-time)
 	</details>
 
 ## WUI
@@ -457,51 +466,142 @@ enum. Values are:
 	![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_cutscenes1.png)
 
 	Cutscenes are saved and read from .ctscn files (which are just plain text).
+	These .ctscn files support some additional elements that, at the moment, can only be added by editing them manually:
 
-	- ### `playcutsceneat <file> <start> <end>`
-		Plays a cutscene from `<start>` to `<end>` (in `minute:second` format) and restores control afterward.
+	- ### `Cutscene Elements`
+		These functionalities only work when read from a `.ctscn` file using commands like `cutsceneplaybackstart` or `playcutsceneat`.
+		- ### `mapmodel <frame> "path" [callback] <duration>`
+			Loads a mapmodel from the `path` folder (starting from packages/models) when reaching the `frame` and removes it after `duration` (milliseconds).  
+			The `[callback]` command is executed, passing in `arg1` the frames since the element was displayed.  
+			It's possible to modify characteristics of the element by returning its parameters from the callback:
 
-	- ### `cutsceneplaybackstart <file> <start> <end>`
-		Like `playcutsceneat` but leaves the camera free so you can move while actors play back.
+			`[result "x y z yaw pitch scale animation collide]`
 
-	- ### `cutscenerecordstart <file>`
-		Starts recording a cutscene to `<file>`. If you are in spectator mode, camera motion is also recorded.
+			example:
+			```js
+			mapmodel 1 "snoutx10k" [
+				result "512 512 512 0 0 320 idle 0"
+			] 2500
+			```
+			this way you can modify these characteristics in real time during the cutscene:
+			```js
+			mapmodel 1 "snoutx10k" [
+				format "512 512 %1 %1 0 5 idle 0" (+ 512 (divf $arg1 25))
+			] 2500
+			```
+		
+		- ### `postfx <frame> "name" <duration> x y z w`
+			Allows adding a postfx shader that will be added at `frame` and kept for the duration of `duration`.  
+			Shaders can be created using the command `shader 0 "name" [<vertex>] [<fragment>]`.  
+			See some examples: [Sauer Concept Shaders](https://github.com/CubeScript/Sauer-Concept-Shaders) and [Sauer Vslot Text Sender](https://github.com/CubeScript/Sauer-Vslot-Text-Sender#:~:text=There%20are%20several%20useful%20data%20sources%20like%3A).
 
-	- ### `cutscenerecordover <file>`
-		Loads `<file>` and records new frames alongside the existing cutscene. Use it to record multiple actors.
 
-	- ### `cutscenerecordpause`
-		Toggles pause for the current cutscene. You can still move the camera or actors when paused.
+		- ### `subtitle <frame> [callback] x y <duration> <scale>`
+			Displays a text starting at `frame` in position `x` and `y` for `duration`, with scale `scale`.  
+			Texts must be returned from the callback:
+			```js
+			subtitle 1 [ format "Hello %1!" $getname ] 500 500 3000 1
+			```
 
-	- ### `cutscenerecordend`
-		Finishes the current recording and closes the file.
+		- ### `audio <frame> "path" <start> <end> <duration> [condition]`
+			When reaching `frame`, if `condition` is true, loops from `start` to `end` the audio file located at `path`.
+			Leave `end` as 0 if you don't want to cut the audio.
+			```js
+				audio 0 "packages/sounds/fanatic/forest.wav" 0 0 10000 []
+			```
 
-	- ### `cutscenerecordload <file>`
-		Loads another cutscene and appends its frames to the current session.
+		- ### `image <frame> "path" x y <duration> <scale>`
+			Displays an image from `path` positioned at `x` and `y` for `duration` with size `scale`.
+			```js
+				image 1 "packages/mitaman/mm-auggiedog.jpg" 50 40 4000 10
+			```
 
-	- ### `cutscenerecordrestart`
-		Restarts playback or recording from the beginning.
+		- ### `runcommand <frame> [command]`
+			Similar to `do`, executes the contents of `command` as soon as `frame` is reached.
+			```js
+				runcommand 1 [echo "hello"]
+			```
 
-	- ### `cutscenerecordsettime <minute:second>`
-		Seeks to the given position in the cutscene.
+	- ### Cutscene Commands
 
-	- ### `cutscenerecordsetframe <frame>`
-		Seeks to the given frame in the cutscene.
+		- ### `playcutsceneat <file> <start> <end>`
+			Plays a cutscene from `<start>` to `<end>` (in `minute:second` format) and restores control afterward.
 
-	- ### `cutscenecamdebug <1/0>`
-		Displays the current camera feed in the upper right corner.
+		- ### `cutsceneplaybackstart <file> <start> <end>`
+			Like `playcutsceneat` but leaves the camera free so you can move while actors play back.
 
-	- ### `cutscenecamdebugsize <0.25/4.0>`
-		Sets the size of the camera feed preview.
+		- ### `cutscenerecordstart <file>`
+			Starts recording a cutscene to `<file>`. If you are in spectator mode, camera motion is also recorded.
 
-	- ### `cutscenecamdebugpath <1/0>`
-		Displays the path of the recorded camera in the current cutscene.
+		- ### `cutscenerecordover <file>`
+			Loads `<file>` and records new frames alongside the existing cutscene. Use it to record multiple actors.
 
-	- ### `cutscenecamdebugpathstep <1/100>`
-		Sets the distance between the visualization segments of the camera path.
-	
-	- ### `cutscenecurrentfile`
-		Returns current cutscene file name.
+		- ### `cutscenerecordcontinue`
+			Continues a recording from the current frame (deletes all subsequent frames).
+
+		- ### `cutscenerecordpause`
+			Toggles pause for the current cutscene. You can still move the camera or actors when paused.
+
+		- ### `cutscenerecordend`
+			Finishes the current recording and closes the file.
+
+		- ### `cutscenerecordload <file>`
+			Loads another cutscene and appends its frames to the current session.
+
+		- ### `cutscenerecordrestart`
+			Restarts playback or recording from the beginning.
+
+		- ### `cutscenerecordsettime <minute:second>`
+			Seeks to the given position in the cutscene.
+
+		- ### `cutscenerecordsetframe <frame>`
+			Seeks to the given frame in the cutscene.
+
+		- ### `cutscenecamdebug <1/0>`
+			Displays the current camera feed in the upper right corner.
+
+		- ### `cutscenecamdebugsize <0.25/4.0>`
+			Sets the size of the camera feed preview.
+
+		- ### `cutscenecamdebugpath <1/0>`
+			Displays the path of the recorded camera in the current cutscene.
+
+		- ### `cutscenecamdebugpathstep <1/100>`
+			Sets the distance between the visualization segments of the camera path.
+		
+		- ### `cutscenecamlerpfrom`  
+			Sets the starting point of the camera interpolation animation (see `cutscenecamlerpto` below).
+
+		- ### `cutscenecamlerpto <ms>`  
+			Sets the end point of the camera interpolation and the time to reach it (see `cutscenecamlerpfrom` above).
+
+		- ### `cutscenecamclear <direction>`
+			Clears the camera frames in the forward (1), backward (-1), or all (0) directions.
+
+		- ### `cutsceneactorclear <id>`
+			Removes all frames from the actor with the given `id` (the id is displayed above the actor).
+
+		- ### `cutscenecurrentframe`
+			Returns the current cutscene frame and the time in min:sec format.
+
+		- ### `cutsceneframeslen`
+			Returns the total size of the current cutscene in frames.
+
+		- ### `cutscenecurrentfile`
+			Returns current cutscene file name.
+
+	- ### Cutscene Shader Parameters
+		- ### `cutscenestate <state> <time>`
+			There is currently a global shader parameter that returns the current state of the cutscene and its frames. Check out a use case in [`packages/models/camera/obj.cfg`](https://github.com/SalatielSauer/SauerWebUI/blob/main/packages/models/camera/obj.cfg)
+
+			```js
+			cutscenestate.x == 0: not playing;
+			cutscenestate.x == 1: recording;
+			cutscenestate.x == 2: paused;
+			cutscenestate.x == 3: playing;
+			cutscenestate.y : frames since cutscene start.
+			```
+
 <hr>
 
 ### Visual Studio Code Syntax Highlighting for CubeScript + JavaScript
