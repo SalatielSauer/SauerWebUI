@@ -232,7 +232,7 @@ static void emoji_downloaded(const char* url, unsigned char* data, size_t size, 
                 if(s)
                 {
                     ImageData img(s);
-                    defformatstring(texname, "<emoji:%s>", code);
+                    defformatstring(texname, "<e:%s>", code);
                     Texture* t = createtransienttexture(texname, img);
                     char* key = newstring(code);
                     emoji_cache[key] = t;
@@ -311,12 +311,12 @@ static float draw_emoji(Texture *&tex, const char* code, int left, int top, floa
         glBindTexture(GL_TEXTURE_2D, tex->id);
         if (!emojitextcolor) gle::color(color, a);
     }
-    else
+    /*else
     {
         // texture not yet available, draw the code as placeholder
         if (emojitextcolor) draw_text(code, int(x1), int(y1), color.r, color.g, color.b, a);
         else draw_text(code, int(x1), int(y1), 255, 255, 255, a);
-    }
+    }*/
 
     gle::defvertex(textmatrix ? 3 : 2);
     gle::deftexcoord0();
