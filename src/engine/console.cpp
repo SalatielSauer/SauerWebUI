@@ -453,6 +453,40 @@ static char *skipwordrev(char *s, int n = -1)
     return e+1;
 }
 
+// SauerWUI - emoji support
+static int skipemoji_forward(const char* s, int pos)
+{
+    int len = (int)strlen(s);
+    if (pos >= len) return len;
+    if (s[pos] == '<' && !strncmp(&s[pos], "<e:", 3))
+    {
+        const char* end = strchr(s + pos + 3, '>');
+        if (end) return end - s + 1;
+    }
+    return pos + 1;
+}
+
+// SauerWUI - emoji support
+static int skipemoji_backward(const char* s, int pos)
+{
+    int len = (int)strlen(s);
+    if (pos > len) pos = len;
+    if (pos <= 0) return 0;
+    for (int i = pos - 1; i >= 0; --i)
+    {
+        if (s[i] == '<')
+        {
+            if (!strncmp(&s[i], "<e:", 3))
+            {
+                const char* end = strchr(s + i + 3, '>');
+                if (end && end - s >= pos - 1) return i;
+            }
+            break;
+        }
+    }
+    return pos - 1;
+}
+
 bool consolekey(int code, bool isdown)
 {
     if(commandmillis < 0) return false;
@@ -487,6 +521,8 @@ bool consolekey(int code, bool isdown)
                 if(commandpos<0) break;
                 int end = commandpos+1;
                 if(SDL_GetModState()&SKIP_KEYS) end = skipword(&commandbuf[commandpos]) - commandbuf;
+                else end = skipemoji_forward(commandbuf, commandpos); // SauerWUI - emoji support
+
                 memmove(&commandbuf[commandpos], &commandbuf[end], len + 1 - end);
                 resetcomplete();
                 if(commandpos>=len-1) commandpos = -1;
@@ -499,6 +535,8 @@ bool consolekey(int code, bool isdown)
                 if(i<1) break;
                 int start = i-1;
                 if(SDL_GetModState()&SKIP_KEYS) start = skipwordrev(commandbuf, i) - commandbuf;
+                else start = skipemoji_backward(commandbuf, i); // SauerWUI - emoji support
+
                 memmove(&commandbuf[start], &commandbuf[i], len - i + 1);
                 resetcomplete();
                 if(commandpos>0) commandpos = start;
@@ -508,15 +546,24 @@ bool consolekey(int code, bool isdown)
 
             case SDLK_LEFT:
                 if(SDL_GetModState()&SKIP_KEYS) commandpos = skipwordrev(commandbuf, commandpos) - commandbuf;
-                else if(commandpos>0) commandpos--;
-                else if(commandpos<0) commandpos = (int)strlen(commandbuf)-1;
+
+                // SauerWUI - emoji support
+                //else if(commandpos>0) commandpos--;
+                //else if(commandpos<0) commandpos = (int)strlen(commandbuf)-1;
+                else if(commandpos > 0) commandpos = skipemoji_backward(commandbuf, commandpos);
+                else if (commandpos < 0) commandpos = skipemoji_backward(commandbuf, strlen(commandbuf));
+                
                 break;
 
             case SDLK_RIGHT:
                 if(commandpos>=0)
                 {
                     if(SDL_GetModState()&SKIP_KEYS) commandpos = skipword(&commandbuf[commandpos]) - commandbuf;
-                    else ++commandpos;
+
+                    // SauerWUI - emoji support
+                    //else ++commandpos;
+                    else commandpos = skipemoji_forward(commandbuf, commandpos);
+
                     if(commandpos>=(int)strlen(commandbuf)) commandpos = -1;
                 }
                 break;

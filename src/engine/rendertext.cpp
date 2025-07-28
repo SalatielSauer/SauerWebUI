@@ -1,4 +1,10 @@
 #include "engine.h"
+#include "SDL_image.h" // SauerWUI - emoji support
+#include "cef.h" // SauerWUI - emoji support
+extern SDL_Surface* fixsurfaceformat(SDL_Surface* s); // SauerWUI - emoji support
+
+VARP(emojitextcolor, 0, 0, 1); // SauerWUI - emoji support
+SVARP(emojisource, "https://github.githubassets.com/images/icons/emoji/unicode/%s.png"); // SauerWUI - emoji support
 
 static hashnameset<font> fonts;
 static font *fontdef = NULL;
@@ -206,6 +212,118 @@ static float draw_char(Texture *&tex, int c, float x, float y, float scale)
     return scale*info.advance;
 }
 
+static hashtable<char*, Texture*> emoji_cache; // SauerWUI - emoji support (cached emoji textures by code)
+static vector<char*> emoji_pending; // SauerWUI - emoji support (pending downloads)
+
+// SauerWUI - emoji support
+static void emoji_downloaded(const char* url, unsigned char* data, size_t size, void* userdata)
+{
+    char* code = (char*)userdata;
+    if(data && size > 0)
+    {
+        SDL_RWops* rw = SDL_RWFromMem(data, size);
+        if(rw)
+        {
+            SDL_Surface* s = IMG_Load_RW(rw, 0);
+            SDL_FreeRW(rw);
+            if(s)
+            {
+                s = fixsurfaceformat(s);
+                if(s)
+                {
+                    ImageData img(s);
+                    defformatstring(texname, "<emoji:%s>", code);
+                    Texture* t = createtransienttexture(texname, img);
+                    char* key = newstring(code);
+                    emoji_cache[key] = t;
+                }
+            }
+        }
+    }
+    if(data) free(data);
+
+    loopvrev(emoji_pending)
+    {
+        if(!strcmp(emoji_pending[i], code))
+        {
+            DELETEA(emoji_pending[i]);
+            emoji_pending.remove(i);
+            break;
+        }
+    }
+    DELETEA(code);
+}
+
+// SauerWUI - emoji support
+static Texture* get_emoji_texture(const char* code)
+{
+    Texture** slot = emoji_cache.access(code);
+    if(slot) return *slot;
+
+    bool found = false;
+    loopv(emoji_pending) if(!strcmp(emoji_pending[i], code)) { found = true; break; }
+    if(!found)
+    {
+        emoji_pending.add(newstring(code));
+        string url;
+        formatstring(url, emojisource, code);
+        cef_download_image(url, emoji_downloaded, newstring(code));
+    }
+    return NULL;
+}
+
+// SauerWUI - emoji support
+static float draw_emoji(Texture *&tex, const char* code, int left, int top, float x, float y, float scale, bvec color, int a)
+{
+    xtraverts += gle::end();
+
+    Texture* etex = get_emoji_texture(code);
+
+    float size = scale*curfont->defaulth;
+    float x1 = left + x, y1 = top + y, x2 = x1 + size, y2 = y1 + size;
+
+    if(etex && etex != notexture)
+    {
+        glBindTexture(GL_TEXTURE_2D, etex->id);
+
+        if (!emojitextcolor) gle::colorub(255, 255, 255, a);
+        else gle::color(color, a);
+
+        gle::defvertex(textmatrix ? 3 : 2);
+        gle::deftexcoord0();
+        gle::begin(GL_QUADS);
+        if(textmatrix)
+        {
+            gle::attrib(textmatrix->transform(vec2(x1, y1))); gle::attribf(0, 0);
+            gle::attrib(textmatrix->transform(vec2(x2, y1))); gle::attribf(1, 0);
+            gle::attrib(textmatrix->transform(vec2(x2, y2))); gle::attribf(1, 1);
+            gle::attrib(textmatrix->transform(vec2(x1, y2))); gle::attribf(0, 1);
+        }
+        else
+        {
+            gle::attribf(x1, y1); gle::attribf(0, 0);
+            gle::attribf(x2, y1); gle::attribf(1, 0);
+            gle::attribf(x2, y2); gle::attribf(1, 1);
+            gle::attribf(x1, y2); gle::attribf(0, 1);
+        }
+        xtraverts += gle::end();
+
+        glBindTexture(GL_TEXTURE_2D, tex->id);
+        if (!emojitextcolor) gle::color(color, a);
+    }
+    else
+    {
+        // texture not yet available, draw the code as placeholder
+        if (emojitextcolor) draw_text(code, int(x1), int(y1), color.r, color.g, color.b, a);
+        else draw_text(code, int(x1), int(y1), 255, 255, 255, a);
+    }
+
+    gle::defvertex(textmatrix ? 3 : 2);
+    gle::deftexcoord0();
+    gle::begin(GL_QUADS);
+    return size;
+}
+
 //stack[sp] is current color index
 
 // SauerWUI - rgb string
@@ -242,6 +360,22 @@ static int skip_rgb(const char* str, int i)
     bvec dummy;
     int end = parse_rgb(str, i, dummy);
     return end >= i ? end : i - 1;
+}
+
+// SauerWUI - emoji support
+static int parse_emoji(const char* str, int i, char* code, size_t maxlen)
+{
+    const char* start = &str[i];
+    if(!strncmp(start, "<e:", 3))
+    {
+        start += 3;
+        size_t len = 0;
+        while(start[len] && start[len] != '>' && len < maxlen-1) len++;
+        memcpy(code, start, len);
+        code[len] = '\0';
+        if(start[len] == '>') return int(start - str + len);
+    }
+    return -1;
 }
 
 //static void text_color(char c, char *stack, int size, int &sp, bvec color, int a)
@@ -294,7 +428,8 @@ static int text_color(const char* str, int i, char* stack, int size, int& sp, bv
 
 #define TEXTSKELETON \
     float y = 0, x = 0, scale = curfont->scale/float(curfont->defaulth);\
-    int i;\
+    int i, ei; /*SauerWUI - emoji support*/\
+    char emcode[64]; /*SauerWUI - emoji support*/\
     for(i = 0; str[i]; i++)\
     {\
         TEXTINDEX(i)\
@@ -303,6 +438,13 @@ static int text_color(const char* str, int i, char* stack, int size, int& sp, bv
         else if(c==' ')  { x += scale*curfont->defaultw; TEXTWHITE(i) }\
         else if(c=='\n') { TEXTLINE(i) x = 0; y += FONTH; }\
         else if(c=='\f') { if(str[i+1]) { i++; TEXTCOLOR(i) }}\
+        /*SauerWUI - emoji support*/\
+        else if(c=='<' && (ei = parse_emoji(str, i, emcode, sizeof(emcode))) >= i)\
+        {\
+            float cw = scale*curfont->defaulth;\
+            TEXTEMOJI(i)\
+            i = ei;\
+        }\
         else if(curfont->chars.inrange(c-curfont->charoffset))\
         {\
             float cw = scale*curfont->chars[c-curfont->charoffset].advance;\
@@ -315,6 +457,7 @@ static int text_color(const char* str, int i, char* stack, int size, int& sp, bv
                 {\
                     int c = uchar(str[i+1]);\
                     if(c=='\f') { if(str[i+2]) { if(str[i+1]=='<') i = skip_rgb(str, i+1); else i++; } continue; }\
+                    if (str[i + 1] == '<' && parse_emoji(str, i + 1, emcode, sizeof(emcode)) >= i + 1) break; /*SauerWUI - emoji support*/\
                     if(i-j > 16) break;\
                     if(!curfont->chars.inrange(c-curfont->charoffset)) break;\
                     float cw = scale*curfont->chars[c-curfont->charoffset].advance;\
@@ -348,6 +491,7 @@ int text_visible(const char *str, float hitx, float hity, int maxwidth)
     #define TEXTLINE(idx) if(y+FONTH > hity) return idx;
     //#define TEXTCOLOR(idx)
     #define TEXTCOLOR(idx) if(str[idx]=='<') idx = skip_rgb(str, idx); // SauerWUI - rgb string
+    #define TEXTEMOJI(idx) x += cw; TEXTWHITE(ei + 1) // SauerWUI - emoji support
     #define TEXTCHAR(idx) x += cw; TEXTWHITE(idx)
     #define TEXTWORD TEXTWORDSKELETON
     TEXTSKELETON
@@ -355,6 +499,7 @@ int text_visible(const char *str, float hitx, float hity, int maxwidth)
     #undef TEXTWHITE
     #undef TEXTLINE
     #undef TEXTCOLOR
+    #undef TEXTEMOJI // SauerWUI - emoji support
     #undef TEXTCHAR
     #undef TEXTWORD
     return i;
@@ -368,6 +513,7 @@ void text_posf(const char *str, int cursor, float &cx, float &cy, int maxwidth)
     #define TEXTLINE(idx)
     //#define TEXTCOLOR(idx)
     #define TEXTCOLOR(idx) if(str[idx]=='<') idx = skip_rgb(str, idx); // SauerWUI - rgb string
+    #define TEXTEMOJI(idx) x += cw; // SauerWUI - emoji support
     #define TEXTCHAR(idx) x += cw;
     #define TEXTWORD TEXTWORDSKELETON if(i >= cursor) break;
     cx = cy = 0;
@@ -377,6 +523,7 @@ void text_posf(const char *str, int cursor, float &cx, float &cy, int maxwidth)
     #undef TEXTWHITE
     #undef TEXTLINE
     #undef TEXTCOLOR
+    #undef TEXTEMOJI
     #undef TEXTCHAR
     #undef TEXTWORD
 }
@@ -388,6 +535,7 @@ void text_boundsf(const char *str, float &width, float &height, int maxwidth)
     #define TEXTLINE(idx) if(x > width) width = x;
     //#define TEXTCOLOR(idx)
     #define TEXTCOLOR(idx) if(str[idx]=='<') idx = skip_rgb(str, idx); // SauerWUI - rgb string
+    #define TEXTEMOJI(idx) x += cw; // SauerWUI - emoji support
     #define TEXTCHAR(idx) x += cw;
     #define TEXTWORD x += w;
     width = 0;
@@ -398,6 +546,7 @@ void text_boundsf(const char *str, float &width, float &height, int maxwidth)
     #undef TEXTWHITE
     #undef TEXTLINE
     #undef TEXTCOLOR
+    #undef TEXTEMOJI // SauerWUI - emoji support
     #undef TEXTCHAR
     #undef TEXTWORD
 }
@@ -410,6 +559,7 @@ void draw_text(const char *str, int left, int top, int r, int g, int b, int a, i
     // SauerWUI - rgb string
     //#define TEXTCOLOR(idx) if(usecolor) text_color(str[idx], colorstack, sizeof(colorstack), colorpos, color, a);
     #define TEXTCOLOR(idx) if(usecolor) idx = text_color(str, idx, colorstack, sizeof(colorstack), colorpos, color, a); else if(str[idx]=='<') idx = skip_rgb(str, idx);
+    #define TEXTEMOJI(idx) draw_emoji(tex, emcode, left, top, x, y, scale, color, a); x += cw;  // SauerWUI - emoji support
     #define TEXTCHAR(idx) draw_char(tex, c, left+x, top+y, scale); x += cw;
     #define TEXTWORD TEXTWORDSKELETON
     char colorstack[10];
@@ -440,6 +590,7 @@ void draw_text(const char *str, int left, int top, int r, int g, int b, int a, i
     #undef TEXTWHITE
     #undef TEXTLINE
     #undef TEXTCOLOR
+    #undef TEXTEMOJI // SauerWUI - emoji support
     #undef TEXTCHAR
     #undef TEXTWORD
 }

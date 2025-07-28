@@ -429,6 +429,36 @@ struct editor
         }
     }
 
+    // SauerWUI - emoji support
+    int skipemoji_forward(const char* str, int pos)
+    {
+        if (str[pos] == '<' && !strncmp(&str[pos], "<e:", 3))
+        {
+            const char* end = strchr(str + pos + 3, '>');
+            if (end) return end - str + 1;
+        }
+        return pos + 1;
+    }
+
+    // SauerWUI - emoji support
+    int skipemoji_backward(const char* str, int pos)
+    {
+        if (pos <= 0) return 0;
+        for (int i = pos - 1; i >= 0; --i)
+        {
+            if (str[i] == '<')
+            {
+                if (!strncmp(&str[i], "<e:", 3))
+                {
+                    const char* end = strchr(str + i + 3, '>');
+                    if (end && end - str >= pos - 1) return i;
+                }
+                break;
+            }
+        }
+        return pos - 1;
+    }
+
     void key(int code)
     {
         switch(code) 
@@ -474,10 +504,14 @@ struct editor
                 cx = cy = INT_MAX;
                 break;
             case SDLK_LEFT:
-                cx--;
+                // SauerWUI - emoji support
+                //cx--;
+                cx = skipemoji_backward(currentline().text, cx);
                 break;
             case SDLK_RIGHT:
-                cx++;
+                // SauerWUI - emoji support
+                //cx++;
+                cx = skipemoji_forward(currentline().text, cx);
                 break;
             case SDLK_DELETE:
                 if(!del())
