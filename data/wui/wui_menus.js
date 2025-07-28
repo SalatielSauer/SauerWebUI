@@ -178,5 +178,19 @@ newgui main [guistayopen [
         guibutton "quit" [ quit ] "exit"
     ]
 ]] 0
+newgui about [guistayopen [guinoautotab [
+    guibutton "^f2Cube 2: Sauerbraten" [ wuiopenurl "http://sauerbraten.org" ] 0
+    guitext [by Wouter "Aardappel" van Oortmerssen, Lee "eihrul" Salzman,] 0
+    guitext [Mike "Gilt" Dysart, Robert "baby-rabbit" Pointon,] 0
+    guitext [John "geartrooper" Siar, Quinton "Quin" Reeves, and others] 0
+    guitext "(for a full list of contributors see the readme)" 0
+    guitext "http://sauerbraten.org/" 0
+	guibar
+	guilist [
+		guibutton "<e:2728>^f5SauerWebUI<e:2728>" [ wuiopenurl "https://github.com/SalatielSauer/SauerWebUI" ] 0
+		guistrut 1
+		guitext "mod by Salatiel S." 0
+	]
+]]] "<e:1f4dc>about"
 showgui main
 `)

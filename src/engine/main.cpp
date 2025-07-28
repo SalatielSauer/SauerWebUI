@@ -1289,6 +1289,13 @@ static int sauerwui_compare_version(const char* other)
 
 ICOMMAND(compareversion, "s", (char* v), intret(sauerwui_compare_version(v)));
 
+// SauerWUI - open a URL with default browser
+void sauerwui_open_url_command(char* url)
+{
+    cef_open_external_url(url);
+}
+ICOMMAND(wuiopenurl, "s", (char* url), sauerwui_open_url_command(url));
+
 int main(int argc, char **argv)
 {
 

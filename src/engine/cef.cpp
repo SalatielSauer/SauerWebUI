@@ -14,6 +14,8 @@
 #include <unistd.h>
 #endif
 #include <unordered_map>
+#include <string>
+#include <cstdlib>
 
 static CefRefPtr<CefBrowser> g_browser;
 
@@ -755,6 +757,19 @@ void cef_start_download(const char* url, const char* subdir)
     if (!g_browser) return;
     download_subdir = subdir ? subdir : "";
     g_browser->GetHost()->StartDownload(url);
+}
+
+void cef_open_external_url(const char* url)
+{
+#if defined(_WIN32)
+    ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+#elif defined(__APPLE__)
+    std::string cmd = std::string("open \"") + url + "\"";
+    system(cmd.c_str());
+#else
+    std::string cmd = std::string("xdg-open \"") + url + "\" >/dev/null 2>&1 &";
+    system(cmd.c_str());
+#endif
 }
 
 static bool cef_initialized = false;

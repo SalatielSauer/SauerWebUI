@@ -76,3 +76,6 @@ void cef_download_image(const char* url, cef_image_data_callback_t cb, void* use
 
 // download a file and store it under HOME/subdir
 void cef_start_download(const char* url, const char* subdir);
+
+// open a URL with default browser
+void cef_open_external_url(const char* url);

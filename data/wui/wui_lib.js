@@ -259,16 +259,26 @@ class WUI {
 }
 
 window.wui = new WUI();
-
 window.handleTargetBlank = function(url) {
     if (url) {
         const iframe = document.createElement('iframe');
         iframe.src = url;
-        window.wui.createMenu(`${url}`, iframe, '40%', '50%', '', { allowFullscreen: true, allowExit: true });
+
+        window.wui.createMenu(`${url}`, iframe, '40%', '50%', '', {
+            allowFullscreen: true,
+            allowExit: true
+        });
+
         window.wui.showMenu(url);
-        document.exitFullscreen();
+
+        if (document.fullscreenElement && document.fullscreenEnabled && document.hasFocus()) {
+            document.exitFullscreen().catch((err) => {
+                console.warn("Failed to exit fullscreen:", err);
+            });
+        }
     }
-}
+};
+
 
 interact('.wui_draggable').draggable({
     allowFrom: '.wui-menu-title, .wui-menu',
