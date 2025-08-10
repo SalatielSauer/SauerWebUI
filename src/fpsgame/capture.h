@@ -442,6 +442,36 @@ struct captureclientmode : clientmode
         if(blips && !basenumbers) gle::end();
     }
 
+    // SauerWUI - radar overlay
+    void drawradaricons(fpsent *d, float x, float y, float s)
+    {
+        bool showenemies = lastmillis%1000 >= 500;
+        int fw = 1, fh = 1;
+        if(basenumbers)
+        {
+            pushfont();
+            setfont("digit_blue");
+            text_bounds(" ", fw, fh);
+        }
+        else settexture("packages/hud/blip_blue.png", 3);
+        float blipsize = basenumbers ? 0.1f : 0.05f;
+        pushhudmatrix();
+        hudmatrix.translate(x + 0.5f*s, y + 0.5f*s, 0);
+        hudmatrix.scale((s*blipsize)/fw, (s*blipsize)/fh, 1.0f);
+        flushhudmatrix();
+        drawblips(d, blipsize, fw, fh, 1, showenemies);
+        if(basenumbers) setfont("digit_grey");
+        else settexture("packages/hud/blip_grey.png", 3);
+        drawblips(d, blipsize, fw, fh, 0, showenemies);
+        if(basenumbers) setfont("digit_red");
+        else settexture("packages/hud/blip_red.png", 3);
+        drawblips(d, blipsize, fw, fh, -1, showenemies);
+        if(showenemies) drawblips(d, blipsize, fw, fh, -2);
+        pophudmatrix();
+        if(basenumbers) popfont();
+        drawteammates(d, x, y, s);
+    }
+
     int respawnwait(fpsent *d, int delay = 0)
     {
         if(m_regencapture) return -1;
@@ -475,6 +505,9 @@ struct captureclientmode : clientmode
         drawradar(-0.5f*rsize, -0.5f*rsize, rsize);
         pophudmatrix();
         #endif
+
+        // SauerWUI - radar overlay
+        /*
         bool showenemies = lastmillis%1000 >= 500;
         int fw = 1, fh = 1;
         if(basenumbers)
@@ -500,6 +533,17 @@ struct captureclientmode : clientmode
         pophudmatrix();
         if(basenumbers) popfont();
         drawteammates(d, x, y, s);
+        */
+        drawradaricons(d, x, y, s);
+        if(radaroverlay)
+        {
+            float os = s*radaroverlaysize;
+            int cx = (1800*w/h - os)/2;
+            int cy = (1800 - os)/2;
+            gle::colorf(1, 1, 1, radaroverlayopacity);
+            drawradaricons(d, cx, cy, os);
+            gle::colorf(1, 1, 1);
+        }
         if(d->state == CS_DEAD)
         {
             int wait = respawnwait(d);

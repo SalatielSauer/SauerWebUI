@@ -6,6 +6,12 @@ namespace game
     VARP(minradarscale, 0, 384, 10000);
     VARP(maxradarscale, 1, 1024, 10000);
     VARP(radarteammates, 0, 1, 1);
+
+    // SauerWUI - radar overlay
+    VARP(radaroverlay, 0, 0, 1);
+    FVARP(radaroverlayopacity, 0, 1, 1);
+    FVARP(radaroverlaysize, 0, 1, 2);
+
     FVARP(minimapalpha, 0, 1, 1);
 
     float calcradarscale()

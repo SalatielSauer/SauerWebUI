@@ -65,6 +65,7 @@ It won't work if you install it side by side with a P1xbraten installation (reas
   - [`writemmobpy <name>`](#writemmobpy-name)
   - [`loadmonster <config>`](#loadmonster-config)
   - [`clearmonsters`](#clearmonsters)
+  - [`radaroverlay`](#radaroverlay-01)
 
   - <details>
 	<summary>Monster Commands</summary>
@@ -459,6 +460,10 @@ enum. Values are:
 	```
 
 </details>
+
+- ### `radaroverlay <0/1>`
+	Display a copy of the minimap icons centered on the screen, that way you don’t need to look at the corner.
+	The appearance can be adjusted with `radaroverlaysize` and `radaroverlayopacity`.
 
 - ### `Cutscene Playback`
 	SauerWUI has an experimental recording system that resembles demos, but with more freedom of control over the camera and actors.

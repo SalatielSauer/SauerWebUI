@@ -539,6 +539,29 @@ struct ctfclientmode : clientmode
         drawblip(d, x, y, s, flagblip ? (f.owner ? f.owner->o : (f.droptime ? f.droploc : f.spawnloc)) : f.spawnloc, flagblip);
     }
 
+    // SauerWUI - radar overlay
+    void drawradaricons(fpsent *d, float x, float y, float s)
+    {
+        if(m_hold)
+        {
+            settexture("packages/hud/blip_neutral.png", 3);
+            loopv(holdspawns) drawblip(d, x, y, s, holdspawns[i].o, false);
+        }
+        loopv(flags)
+        {
+            flag &f = flags[i];
+            if(m_hold ? f.spawnindex < 0 : !ctfflagteam(f.team)) continue;
+            if(!m_hold) drawblip(d, x, y, s, i, false);
+            if(f.owner)
+            {
+                if(!m_hold && lastmillis%1000 >= 500) continue;
+            }
+            else if(f.droptime && (f.droploc.x < 0 || lastmillis%300 >= 150)) continue;
+            drawblip(d, x, y, s, i, true);
+        }
+        drawteammates(d, x, y, s);
+    }
+
     int clipconsole(int w, int h)
     {
         return (h*(1 + 1 + 10))/(4*10);
@@ -585,6 +608,9 @@ struct ctfclientmode : clientmode
         drawradar(-0.5f*rsize, -0.5f*rsize, rsize);
         pophudmatrix();
         #endif
+
+        // SauerWUI - radar overlay
+        /*
         if(m_hold)
         {
             settexture("packages/hud/blip_neutral.png", 3);
@@ -603,6 +629,17 @@ struct ctfclientmode : clientmode
             drawblip(d, x, y, s, i, true);
         }
         drawteammates(d, x, y, s);
+        */
+        drawradaricons(d, x, y, s);
+        if(radaroverlay)
+        {
+            float os = s*radaroverlaysize;
+            int cx = (1800*w/h - os)/2;
+            int cy = (1800 - os)/2;
+            gle::colorf(1, 1, 1, radaroverlayopacity);
+            drawradaricons(d, cx, cy, os);
+            gle::colorf(1, 1, 1);
+        }
         if(d->state == CS_DEAD && (m_efficiency || !m_protect))
         {
             int wait = respawnwait(d);

@@ -437,6 +437,26 @@ struct collectclientmode : clientmode
         drawblip(d, x, y, s, b.o);
     }
 
+    // SauerWUI - radar overlay
+    void drawradaricons(fpsent *d, float x, float y, float s)
+    {
+        loopv(bases)
+        {
+            base &b = bases[i];
+            if(!collectbaseteam(b.team)) continue;
+            drawbaseblip(d, x, y, s, i);
+        }
+        int team = collectteambase(d->team);
+        settexture(team == collectteambase(player1->team) ? "packages/hud/blip_red_skull.png" : "packages/hud/blip_blue_skull.png", 3);
+        loopv(players)
+        {
+            fpsent *o = players[i];
+            if(o != d && o->state == CS_ALIVE && o->tokens > 0 && collectteambase(o->team) != team)
+                drawblip(d, x, y, s, o->o, 0.07f);
+        }
+        drawteammates(d, x, y, s);
+    }
+
     int clipconsole(int w, int h)
     {
         return (h*(1 + 1 + 10))/(4*10);
@@ -475,6 +495,9 @@ struct collectclientmode : clientmode
         drawradar(-0.5f*rsize, -0.5f*rsize, rsize);
         pophudmatrix();
         #endif
+
+        // SauerWUI - radar overlay
+        /*
         loopv(bases)
         {
             base &b = bases[i];
@@ -490,6 +513,17 @@ struct collectclientmode : clientmode
                 drawblip(d, x, y, s, o->o, 0.07f);
         }
         drawteammates(d, x, y, s);
+        */
+        drawradaricons(d, x, y, s);
+        if(radaroverlay)
+        {
+            float os = s*radaroverlaysize;
+            int cx = (1800*w/h - os)/2;
+            int cy = (1800 - os)/2;
+            gle::colorf(1, 1, 1, radaroverlayopacity);
+            drawradaricons(d, cx, cy, os);
+            gle::colorf(1, 1, 1);
+        }
         if(d->state == CS_DEAD)
         {
             int wait = respawnwait(d);
