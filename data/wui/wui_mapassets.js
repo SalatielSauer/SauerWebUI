@@ -57,9 +57,8 @@ class MapAssetsMenu {
         this.body = this._render();
         this.menuApi.createMenu(this.id, this.body, '52%', '52%', 'Map Assets', { allowExit: true, allowDrag: false });
         this.menuApi.showMenu(this.id);
-        window.cubescript('showcursor 1');
         this.menuApi.ondisappear = () => {
-           
+
         }
     }
 

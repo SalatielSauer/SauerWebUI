@@ -132,13 +132,12 @@ newgui main [guistayopen [
 	guialign 1 [
 		guibutton "test WUI" [
 			cleargui
-			javascript [
-				window._create_menu_main();
-				window._create_menu_browser();
-				window.wui.showMenu('main');
-			]
-			showcursor 1
-		] "arrow_fw" 0.5
+                javascript [
+                        window._create_menu_main();
+                        window._create_menu_browser();
+                        window.wui.showMenu('main');
+                ]
+        ] "arrow_fw" 0.5
 	]
 	guistrut 0.1
     guilist [

@@ -55,8 +55,12 @@ class WUI {
             if (this.openMenuStack.length > 0) {
                 this.clearMenu(id, this.openMenuStack.length > 1, false);
             }
-            callback(this.openMenuStack, this.menus[id]);            
+            callback(this.openMenuStack, this.menus[id]);
         }
+    }
+
+    updateCursorState() {
+        window.cubescript(`showcursor ${this.openMenuStack.length > 0 ? 1 : 0}`);
     }
 
     createMenu(id, body, x, y, title, options = {}, event) {
@@ -168,6 +172,7 @@ class WUI {
                 this.openMenuStack = this.openMenuStack.filter(mid => mid !== id);
                 this.openMenuStack.push(id);
             }
+            this.updateCursorState();
             // update menu position if event is provided
             if (event) {
                 let x = event.clientX - menu.offsetWidth / 2;
@@ -192,9 +197,7 @@ class WUI {
         const menu = this.menus[id];
         if (menu) {
             this.openMenuStack = this.openMenuStack.filter(mid => mid !== id);
-            if (!keep_cursor && this.openMenuStack.length === 0) {
-                window.cubescript('showcursor 0');
-            }
+            if (!keep_cursor) this.updateCursorState();
             menu.classList.remove('active');
             if (menu.ondisappear) {
                 menu.ondisappear();
@@ -217,9 +220,7 @@ class WUI {
         const menu = this.menus[id];
         if (menu) {
             this.openMenuStack = this.openMenuStack.filter(mid => mid !== id);
-            if (!keep_cursor && this.openMenuStack.length === 0) {
-                window.cubescript('showcursor 0');
-            }
+            if (!keep_cursor) this.updateCursorState();
             if (menu.ondisappear && dispatch) {
                 menu.ondisappear();
             }

@@ -94,7 +94,7 @@ class GithubUpdater {
             const { author, date } = result.latestCommit || {};
             const formattedDate = date ? new Date(date).toLocaleString() : '';
             console.log(`\f7[${formattedDate}] --------------------\n\f8A new version of ${this.config.name} is available!\n\f0Use the menu to update your client.\n\f7--------------------`);
-            window.cubescript(`cleargui; showcursor 1`);
+            window.cubescript(`cleargui`);
             this.showMenu();
         }
     }
