@@ -673,9 +673,7 @@ void changed(const block3 &sel, bool commit = true)
 {
     if(sel.s.iszero()) return;
 
-    //readychanges(ivec(sel.o).sub(1), ivec(sel.s).mul(sel.grid).add(sel.o).add(1), worldroot, ivec(0, 0, 0), worldsize/2);
-    // SauerWUI - preserve lightmap when editing neighbouring cubes
-    readychanges(sel.o, ivec(sel.s).mul(sel.grid).add(sel.o), worldroot, ivec(0, 0, 0), worldsize / 2);
+    readychanges(ivec(sel.o).sub(1), ivec(sel.s).mul(sel.grid).add(sel.o).add(1), worldroot, ivec(0, 0, 0), worldsize/2);
 
     haschanged = true;
 
