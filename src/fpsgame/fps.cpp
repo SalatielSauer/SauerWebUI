@@ -8,6 +8,10 @@ namespace game
     int respawnent = -1;
     int lasthit = 0, lastspawnattempt = 0;
 
+    // SauerWUI - frag announcer
+    int lastkill = 0, killcombo = 0;
+    bool firstblood = false;
+
     int following = -1, followdir = 0;
 
     fpsent *player1 = NULL;         // our client
@@ -506,6 +510,27 @@ namespace game
             if(d==player1) conoutf(contype, "\f2%s got fragged by %s", dname, aname);
             else conoutf(contype, "\f2%s fragged %s", aname, dname);
         }
+
+        // SauerWUI - frag announcer
+        bool enemyfrag = actor==player1 && d!=player1 && (!m_teammode || !isteam(d->team, actor->team));
+        if(enemyfrag)
+        {
+            if(!firstblood) playsoundname("swui/firstblood", NULL, 255);
+            int elapsed = lastmillis - lastkill;
+            killcombo = (elapsed <= 3000 ? killcombo + 1 : 1);
+            lastkill = lastmillis;
+            const char *sample = NULL;
+            switch(killcombo)
+            {
+                case 2: sample = "swui/doublekill"; break;
+                case 3: sample = "swui/triplekill"; break;
+                case 4: sample = "swui/quadruplekill"; break;
+                case 5: sample = "swui/quintuplekill"; break;
+            }
+            if(sample) playsoundname(sample, NULL, 255);
+        }
+        if(!firstblood) firstblood = true;
+
         deathstate(d);
 		ai::killed(d, actor);
     }
@@ -521,6 +546,7 @@ namespace game
         {
             intermission = true;
             player1->attacking = false;
+            playsoundname("swui/intermission", NULL, 255); // SauerWUI - frag announcer
             if(cmode) cmode->gameover();
             conoutf(CON_GAMEINFO, "\f2intermission:");
             conoutf(CON_GAMEINFO, "\f2game has ended!");
@@ -664,6 +690,11 @@ namespace game
         showscores(false);
         disablezoom();
         lasthit = 0;
+
+        // SauerWUI - frag announcer
+        lastkill = 0;
+        killcombo = 0;
+        firstblood = false;
 
         execident("mapstart");
     }

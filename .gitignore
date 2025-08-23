@@ -11,6 +11,10 @@ data/*
 packages/models/*
 !packages/models/camera/
 
+!packages/sounds/
+packages/sounds/*
+!packages/sounds/swui/
+
 *.lib
 *.pdb
 *.user
