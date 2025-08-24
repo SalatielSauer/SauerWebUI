@@ -1307,6 +1307,18 @@ struct ctfclientmode : clientmode
 };
 
 extern ctfclientmode ctfmode;
+
+// SauerWUI - scoreboard flag icon
+inline int playerflagteam(fpsent *d)
+{
+    loopvj(ctfmode.flags)
+    {
+        ctfclientmode::flag &f = ctfmode.flags[j];
+        if(f.owner == d) return f.team;
+    }
+    return -1;
+}
+
 ICOMMAND(dropflag, "", (), { ctfmode.trydropflag(); });
 
 #endif

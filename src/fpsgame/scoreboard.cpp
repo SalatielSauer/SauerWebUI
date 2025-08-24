@@ -3,6 +3,8 @@
 
 namespace game
 {
+    int playerflagteam(fpsent *d); // SauerWUI - scoreboard flag icon
+
     VARP(scoreboard2d, 0, 1, 1);
     VARP(showservinfo, 0, 1, 1);
     VARP(showclientnum, 0, 0, 1);
@@ -274,7 +276,19 @@ namespace game
             g.strut(12);
             loopscoregroup(o,
             {
-                g.textf("%s ", statuscolor(o, 0xFFFFDD), NULL, colorname(o));
+                // SauerWUI - scoreboard flag icon
+                const char *flagicon = NULL;
+                if(m_ctf)
+                {
+                    int flagteam = playerflagteam(o);
+                    if (flagteam >= 0)
+                    {
+                        if (flagteam == 0) flagicon = "../hud/blip_neutral_flag.png";
+                        else flagicon = isteam(player1->team, o->team) ? "../hud/blip_red_flag.png" : "../hud/blip_blue_flag.png";
+                    }
+                }
+
+                g.textf("%s", statuscolor(o, 0xFFFFDD), flagicon, colorname(o));
             });
             g.poplist();
 

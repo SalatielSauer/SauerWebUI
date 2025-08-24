@@ -744,6 +744,7 @@ namespace game
     extern void drawicon(int icon, float x, float y, float sz = 120);
     const char *mastermodecolor(int n, const char *unknown);
     const char *mastermodeicon(int n, const char *unknown);
+    extern int playerflagteam(fpsent* d); // SauerWUI - scoreboard flag icon
 
     // client
     extern bool connected, remote, demoplayback;
