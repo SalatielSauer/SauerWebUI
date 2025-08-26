@@ -3,12 +3,56 @@
 #include "engine.h"
 #include "cef.h"
 #include <SDL_syswm.h>
+#include <SDL_gamecontroller.h> // SauerWUI - controller support
 
 #ifdef SDL_VIDEO_DRIVER_X11
 #include "SDL_syswm.h"
 #endif
 
 extern void cleargamma();
+extern void keymap(int *code, char *key); // SauerWUI - controller support
+
+// SauerWUI - controller support
+SDL_GameController *gamecontroller = NULL;
+int joy_rightx = 0, joy_righty = 0;
+bool joy_left = false, joy_right = false, joy_up = false, joy_down = false, joy_triggerleft = false, joy_triggerright = false;
+const int JOY_DEADZONE = 8000;
+FVARP(joylooksens, 0, 1, 20);
+
+static inline int controllerkey(int button)
+{
+    return -(200 + button);
+}
+
+static inline int controlleraxiskey(int axis)
+{
+    return -(300 + axis);
+}
+
+static void initcontrollerkeys()
+{
+#define MAP_BUTTON(btn, name) do { int code = controllerkey(btn); keymap(&code, const_cast<char *>(name)); } while(0)
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_A, "CONTROLLER_A");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_B, "CONTROLLER_B");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_X, "CONTROLLER_X");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_Y, "CONTROLLER_Y");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_BACK, "CONTROLLER_BACK");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_GUIDE, "CONTROLLER_GUIDE");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_START, "CONTROLLER_START");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_LEFTSTICK, "CONTROLLER_LEFTSTICK");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_RIGHTSTICK, "CONTROLLER_RIGHTSTICK");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_LEFTSHOULDER, "CONTROLLER_LEFTSHOULDER");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, "CONTROLLER_RIGHTSHOULDER");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_DPAD_UP, "CONTROLLER_DPAD_UP");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_DPAD_DOWN, "CONTROLLER_DPAD_DOWN");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_DPAD_LEFT, "CONTROLLER_DPAD_LEFT");
+    MAP_BUTTON(SDL_CONTROLLER_BUTTON_DPAD_RIGHT, "CONTROLLER_DPAD_RIGHT");
+#undef MAP_BUTTON
+#define MAP_AXIS(ax, name) do { int code = controlleraxiskey(ax); keymap(&code, const_cast<char *>(name)); } while(0)
+    MAP_AXIS(SDL_CONTROLLER_AXIS_TRIGGERLEFT, "CONTROLLER_TRIGGERLEFT");
+    MAP_AXIS(SDL_CONTROLLER_AXIS_TRIGGERRIGHT, "CONTROLLER_TRIGGERRIGHT");
+#undef MAP_AXIS
+}
 
 void cleanup()
 {
@@ -17,6 +61,14 @@ void cleanup()
     SDL_ShowCursor(SDL_TRUE);
     SDL_SetRelativeMouseMode(SDL_FALSE);
     if(screen) SDL_SetWindowGrab(screen, SDL_FALSE);
+
+    // SauerWUI - controller support
+    if(gamecontroller)
+    {
+        SDL_GameControllerClose(gamecontroller);
+        gamecontroller = NULL;
+    }
+
     cleargamma();
     freeocta(worldroot);
     extern void clear_command(); clear_command();
@@ -104,6 +156,70 @@ VAR(desktoph, 1, 0, 0);
 int screenw = 0, screenh = 0;
 SDL_Window *screen = NULL;
 SDL_GLContext glcontext = NULL;
+
+// SauerWUI - controller support
+static void initcontroller()
+{
+    if(SDL_NumJoysticks() <= 0) return;
+    loopi(SDL_NumJoysticks())
+    {
+        if(SDL_IsGameController(i))
+        {
+            gamecontroller = SDL_GameControllerOpen(i);
+            if(gamecontroller)
+            {
+                SDL_GameControllerEventState(SDL_ENABLE);
+                break;
+            }
+        }
+    }
+}
+
+static void handlejoyaxis(int value, int negative, int positive, bool &negpressed, bool &pospressed)
+{
+    int sign = 0;
+    if(value < -JOY_DEADZONE) sign = -1;
+    else if(value > JOY_DEADZONE) sign = 1;
+
+    if(sign < 0)
+    {
+        if(!negpressed) { processkey(negative, true, 0); negpressed = true; }
+    }
+    else if(negpressed)
+    {
+        processkey(negative, false, 0);
+        negpressed = false;
+    }
+
+    if(sign > 0)
+    {
+        if(!pospressed) { processkey(positive, true, 0); pospressed = true; }
+    }
+    else if(pospressed)
+    {
+        processkey(positive, false, 0);
+        pospressed = false;
+    }
+}
+
+static void handlejoytrigger(int value, int key, bool &pressed)
+{
+    if(value > JOY_DEADZONE)
+    {
+        if(!pressed)
+        {
+            processkey(key, true, 0);
+            pressed = true;
+        }
+    }
+    else if(pressed)
+    {
+        processkey(key, false, 0);
+        pressed = false;
+    }
+    processkeyarg(key, value);
+}
+
 
 #define SCR_MINW 320
 #define SCR_MINH 200
@@ -1038,6 +1154,46 @@ void checkinput()
                 }
                 break;
 
+            // SauerWUI - controller support
+            case SDL_CONTROLLERDEVICEADDED:
+                if(!gamecontroller) gamecontroller = SDL_GameControllerOpen(event.cdevice.which);
+                break;
+            case SDL_CONTROLLERDEVICEREMOVED:
+                if(gamecontroller && SDL_GameControllerGetJoystick(gamecontroller) &&
+                   SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(gamecontroller)) == event.cdevice.which)
+                {
+                    SDL_GameControllerClose(gamecontroller);
+                    gamecontroller = NULL;
+                }
+                break;
+            case SDL_CONTROLLERAXISMOTION:
+                switch(event.caxis.axis)
+                {
+                    case SDL_CONTROLLER_AXIS_LEFTX:
+                        handlejoyaxis(event.caxis.value, SDLK_a, SDLK_d, joy_left, joy_right);
+                        break;
+                    case SDL_CONTROLLER_AXIS_LEFTY:
+                        handlejoyaxis(event.caxis.value, SDLK_w, SDLK_s, joy_up, joy_down);
+                        break;
+                    case SDL_CONTROLLER_AXIS_RIGHTX:
+                        joy_rightx = SDL_abs(event.caxis.value) > JOY_DEADZONE ? event.caxis.value : 0;
+                        break;
+                    case SDL_CONTROLLER_AXIS_RIGHTY:
+                        joy_righty = SDL_abs(event.caxis.value) > JOY_DEADZONE ? event.caxis.value : 0;
+                        break;
+                    case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+                        handlejoytrigger(event.caxis.value, controlleraxiskey(SDL_CONTROLLER_AXIS_TRIGGERLEFT), joy_triggerleft);
+                        break;
+                    case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
+                        handlejoytrigger(event.caxis.value, controlleraxiskey(SDL_CONTROLLER_AXIS_TRIGGERRIGHT), joy_triggerright);
+                        break;
+                }
+                break;
+            case SDL_CONTROLLERBUTTONDOWN:
+            case SDL_CONTROLLERBUTTONUP:
+                processkey(controllerkey(event.cbutton.button), event.cbutton.state==SDL_PRESSED, 0);
+                break;
+
             case SDL_MOUSEMOTION:
                 if(grabinput)
                 {
@@ -1087,6 +1243,18 @@ void checkinput()
                     else if (event.wheel.x > 0) { processkey(-8, true); processkey(-8, false); }
                     else if (event.wheel.x < 0) { processkey(-9, true); processkey(-9, false); }
                 }
+        }
+    }
+
+    // SauerWUI - controller support
+    if(gamecontroller)
+    {
+        int dx = int((joy_rightx/8192.0f)*joylooksens);
+        int dy = int((joy_righty/8192.0f)*joylooksens);
+        if(dx || dy)
+        {
+            if(!g3d_movecursor(dx, dy)) mousemove(dx, dy);
+            mousemoved = true;
         }
     }
 
@@ -1380,7 +1548,15 @@ int main(int argc, char **argv)
     {
         logoutf("init: sdl");
 
-        if(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO|SDL_INIT_AUDIO)<0) fatal("Unable to initialize SDL: %s", SDL_GetError());
+        // SauerWUI - controller support
+        //if(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO|SDL_INIT_AUDIO)<0) fatal("Unable to initialize SDL: %s", SDL_GetError());
+        if(SDL_Init(SDL_INIT_TIMER|SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMECONTROLLER)<0) fatal("Unable to initialize SDL: %s", SDL_GetError());
+        initcontroller();
+        initcontrollerkeys();
+        if(gamecontroller)
+        {
+            execfile("data/wui/joystickbinds.cfg", false);
+        }
 
 #ifdef SDL_VIDEO_DRIVER_X11
         SDL_version version;
@@ -1567,7 +1743,7 @@ int main(int argc, char **argv)
             else
             {
                 // give time for any background cef threads to exit
-                Sleep(50);
+                SDL_Delay(50);
 
                 // now destroy sdl window, do cleanup and exit
                 cleanup();

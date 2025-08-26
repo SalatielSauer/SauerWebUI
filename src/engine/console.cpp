@@ -244,6 +244,7 @@ void bindkey(char *key, char *action, int state, const char *cmd)
 ICOMMAND(bind,     "ss", (char *key, char *action), bindkey(key, action, keym::ACTION_DEFAULT, "bind"));
 ICOMMAND(specbind, "ss", (char *key, char *action), bindkey(key, action, keym::ACTION_SPECTATOR, "specbind"));
 ICOMMAND(editbind, "ss", (char *key, char *action), bindkey(key, action, keym::ACTION_EDITING, "editbind"));
+ICOMMAND(controllerbind, "ss", (char *key, char *action), bindkey(key, action, keym::ACTION_DEFAULT, "controllerbind"));  // SauerWUI - controller support
 ICOMMAND(getbind,     "s", (char *key), getbind(key, keym::ACTION_DEFAULT));
 ICOMMAND(getspecbind, "s", (char *key), getbind(key, keym::ACTION_SPECTATOR));
 ICOMMAND(geteditbind, "s", (char *key), getbind(key, keym::ACTION_EDITING));
@@ -655,6 +656,27 @@ void processkey(int code, bool isdown, int modstate)
             if(haskey) execbind(*haskey, isdown);
         }
     }
+}
+
+// SauerWUI - controller support
+void processkeyarg(int code, int arg)
+{
+    keym *km = keyms.access(code);
+    if(!km) return;
+
+    int state = keym::ACTION_DEFAULT;
+    if(!mainmenu)
+    {
+        if(editmode) state = keym::ACTION_EDITING;
+        else if(player->state==CS_SPECTATOR) state = keym::ACTION_SPECTATOR;
+    }
+
+    char *action = km->actions[state][0] ? km->actions[state] : km->actions[keym::ACTION_DEFAULT];
+    if(!action[0]) return;
+
+    tagval arg1;
+    arg1.setint(arg);
+    executestr(action, &arg1, 1);
 }
 
 void clear_console()
