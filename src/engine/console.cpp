@@ -331,6 +331,7 @@ vector<hline *> history;
 int histpos = 0;
 
 VARP(maxhistory, 0, 1000, 10000);
+VARP(maxhistorykeep, 0, 10, 10000); // SauerWUI - keep command history
 
 void history_(int *n)
 {
@@ -344,6 +345,35 @@ void history_(int *n)
 }
 
 COMMANDN(history, history_, "i");
+
+// SauerWUI - keep command history
+void addconhistory_(char *buf, char *action, char *prompt, int *flags)
+{
+    hline *h = new hline();
+    if(buf && buf[0]) h->buf = newstring(buf);
+    if(action && action[0]) h->action = newstring(action);
+    if(prompt && prompt[0]) h->prompt = newstring(prompt);
+    h->flags = flags ? *flags : 0;
+    history.add(h);
+    histpos = history.length();
+}
+COMMANDN(addconhistory, addconhistory_, "sssi");
+
+// SauerWUI - keep command history
+void writehistory(stream *f)
+{
+    int n = min(history.length(), maxhistorykeep);
+    if(n <= 0) return;
+    loopi(n)
+    {
+        hline *h = history[history.length() - n + i];
+        const char *buf = h && h->buf ? h->buf : "";
+        const char *act = h && h->action ? h->action : "";
+        const char *prm = h && h->prompt ? h->prompt : "";
+        f->printf("addconhistory %s %s %s %d\n",
+            escapestring(buf), escapestring(act), escapestring(prm), h ? h->flags : 0);
+    }
+}
 
 struct releaseaction
 {

@@ -2762,6 +2762,7 @@ void writecfg(const char *name)
     }
     f->printf("\n");
     writecompletions(f);
+    writehistory(f); // SauerWUI - keep command history
     delete f;
 }
 

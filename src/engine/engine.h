@@ -422,6 +422,7 @@ const char *getkeyname(int code);
 extern const char *addreleaseaction(char *s);
 extern void writebinds(stream *f);
 extern void writecompletions(stream *f);
+extern void writehistory(stream *f); // SauerWUI - keep command history
 
 // main
 enum
