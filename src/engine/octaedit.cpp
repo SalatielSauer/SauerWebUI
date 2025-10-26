@@ -1,6 +1,7 @@
 #include "engine.h"
 
 extern int outline;
+extern vector<int> smoothgroups; // SauerWUI - remove unused textures (write map cfg)
 
 bool boxoutline = false;
 
@@ -595,7 +596,6 @@ void rendereditcursor()
         loopv(multisels)
         {
             selinfo& ms = multisels[i];
-            int md = dimension(ms.orient);
             gle::colorub(50, 50, 50);
             boxsgrid(ms.orient, vec(ms.o), vec(ms.s), ms.grid);
             gle::colorub(0, 0, 120);
@@ -2521,6 +2521,357 @@ void compactmruvslots()
     else lasttex = 0;
     reptex = vslots.inrange(reptex) ? vslots[reptex]->index : -1;
 }
+
+// SauerWUI - remove unused textures (write map cfg)
+static inline bool inrange(const vector<char> &v, int idx)
+{
+    return idx >= 0 && idx < v.length();
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static inline bool inrange(const vector<int> &v, int idx)
+{
+    return idx >= 0 && idx < v.length();
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void markcubevslots(cube &c, vector<char> &used)
+{
+    if(c.children)
+    {
+        loopi(8) markcubevslots(c.children[i], used);
+        return;
+    }
+    loopi(6)
+    {
+        int tex = c.texture[i];
+        if(inrange(used, tex)) used[tex] = 1;
+    }
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void markcubevslots(cube *c, int count, vector<char> &used)
+{
+    loopi(count) markcubevslots(c[i], used);
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void markblockvslots(block3 *b, vector<char> &used)
+{
+    if(!b) return;
+    markcubevslots(b->c(), b->size(), used);
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static inline int mappedvslot(const vector<int> &remap, int index)
+{
+    return inrange(remap, index) ? remap[index] : -1;
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void remapcubevslots(cube &c, const vector<int> &remap, int fallback)
+{
+    if(c.children)
+    {
+        loopi(8) remapcubevslots(c.children[i], remap, fallback);
+        return;
+    }
+    loopi(6)
+    {
+        int tex = c.texture[i];
+        int mapped = mappedvslot(remap, tex);
+        if(mapped >= 0) c.texture[i] = mapped;
+        else if(fallback >= 0) c.texture[i] = fallback;
+    }
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void remapcubevslots(cube *c, int count, const vector<int> &remap, int fallback)
+{
+    loopi(count) remapcubevslots(c[i], remap, fallback);
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void remapblockvslots(block3 *b, const vector<int> &remap, int fallback)
+{
+    if(!b) return;
+    remapcubevslots(b->c(), b->size(), remap, fallback);
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static bool removeunusedtextures_internal(int &removedslots, int &removedvslots)
+{
+    removedslots = removedvslots = 0;
+    if(vslots.empty()) return false;
+
+    const int oldslotcount = slots.length();
+    const int oldvslotcount = vslots.length();
+
+    vector<char> used;
+    loopi(oldvslotcount) used.add(0);
+
+    if(inrange(used, DEFAULT_SKY)) used[DEFAULT_SKY] = 1;
+    if(inrange(used, DEFAULT_GEOM)) used[DEFAULT_GEOM] = 1;
+
+    if(worldroot) markcubevslots(worldroot, 8, used);
+
+    loopv(editinfos)
+    {
+        editinfo *e = editinfos[i];
+        if(!e || !e->copy) continue;
+        markblockvslots(e->copy, used);
+    }
+
+    bool changed = true;
+    while(changed)
+    {
+        changed = false;
+        loopv(vslots) if(inrange(used, i) && used[i])
+        {
+            VSlot *vs = vslots[i];
+            if(vs->slot && vs->slot->variants)
+            {
+                int base = vs->slot->variants->index;
+                if(inrange(used, base) && !used[base])
+                {
+                    used[base] = 1;
+                    changed = true;
+                }
+            }
+            if(vs->layer >= 0 && inrange(used, vs->layer) && !used[vs->layer])
+            {
+                used[vs->layer] = 1;
+                changed = true;
+            }
+        }
+    }
+
+    vector<char> slotused;
+    loopi(oldslotcount) slotused.add(0);
+    loopi(oldvslotcount) if(inrange(used, i) && used[i])
+    {
+        VSlot *vs = vslots[i];
+        if(vs && vs->slot && inrange(slotused, vs->slot->index)) slotused[vs->slot->index] = 1;
+    }
+    if(inrange(slotused, DEFAULT_SKY)) slotused[DEFAULT_SKY] = 1;
+    if(inrange(slotused, DEFAULT_GEOM)) slotused[DEFAULT_GEOM] = 1;
+
+    int keepSlots = 0;
+    loopi(slotused.length()) if(slotused[i]) keepSlots++;
+
+    vector<int> vslotremap;
+    loopi(oldvslotcount) vslotremap.add(-1);
+    int keepVSlots = 0;
+    loopi(oldvslotcount) if(inrange(used, i) && used[i])
+    {
+        vslotremap[i] = keepVSlots++;
+    }
+
+    if(keepSlots == oldslotcount && keepVSlots == oldvslotcount) return false;
+
+    vector<Slot *> oldslots;
+    oldslots.move(slots);
+    slots.shrink(0);
+    loopi(oldslots.length())
+    {
+        Slot *slot = oldslots[i];
+        if(!slot) continue;
+        if(inrange(slotused, i) && slotused[i])
+        {
+            slot->index = slots.length();
+            slot->variants = NULL;
+            slots.add(slot);
+        }
+        else delete slot;
+    }
+    oldslots.shrink(0);
+
+    vector<VSlot *> oldvslots;
+    oldvslots.move(vslots);
+    vslots.shrink(0);
+    loopi(oldvslots.length())
+    {
+        VSlot *vs = oldvslots[i];
+        if(!vs) continue;
+        int mapped = mappedvslot(vslotremap, i);
+        if(mapped >= 0)
+        {
+            vs->index = mapped;
+            vs->next = NULL;
+            vslots.add(vs);
+        }
+        else delete vs;
+    }
+    oldvslots.shrink(0);
+
+    loopv(vslots)
+    {
+        VSlot *vs = vslots[i];
+        if(!vs) continue;
+        if(vs->layer > 0)
+        {
+            int mappedlayer = mappedvslot(vslotremap, vs->layer);
+            vs->layer = mappedlayer >= 0 ? mappedlayer : 0;
+        }
+    }
+
+    vector<VSlot *> slotlast;
+    loopi(slots.length()) slotlast.add(NULL);
+    loopv(vslots)
+    {
+        VSlot *vs = vslots[i];
+        Slot *slot = vs->slot;
+        if(!slot || !slotlast.inrange(slot->index)) continue;
+        if(!slotlast[slot->index])
+        {
+            slot->variants = slotlast[slot->index] = vs;
+        }
+        else
+        {
+            slotlast[slot->index]->next = vs;
+            slotlast[slot->index] = vs;
+        }
+    }
+    slotlast.shrink(0);
+
+    int defaulttex = vslots.inrange(DEFAULT_GEOM) ? DEFAULT_GEOM : (vslots.empty() ? -1 : 0);
+    if(worldroot) remapcubevslots(worldroot, 8, vslotremap, defaulttex);
+
+    loopv(editinfos)
+    {
+        editinfo *e = editinfos[i];
+        if(!e || !e->copy) continue;
+        remapblockvslots(e->copy, vslotremap, defaulttex);
+    }
+
+    loopv(editingvslots)
+    {
+        int &tex = *editingvslots[i];
+        if(tex < 0) continue;
+        int mapped = mappedvslot(vslotremap, tex);
+        tex = mapped >= 0 ? mapped : defaulttex;
+    }
+
+    int mappedrep = mappedvslot(vslotremap, reptex);
+    reptex = mappedrep >= 0 ? mappedrep : -1;
+    int mappedlast = mappedvslot(vslotremap, lasttex);
+    lasttex = mappedlast >= 0 ? mappedlast : (defaulttex >= 0 ? defaulttex : -1);
+
+    loopv(htextures)
+    {
+        int mapped = mappedvslot(vslotremap, htextures[i]);
+        if(mapped >= 0) htextures[i] = mapped;
+        else htextures.remove(i--);
+    }
+
+    loopvrev(texmru)
+    {
+        int mapped = mappedvslot(vslotremap, texmru[i]);
+        if(mapped >= 0) texmru[i] = mapped;
+        else
+        {
+            if(curtexindex > i) curtexindex--;
+            else if(curtexindex == i) curtexindex = -1;
+            texmru.remove(i);
+        }
+    }
+    if(curtexindex >= texmru.length()) curtexindex = texmru.empty() ? -1 : texmru.length()-1;
+
+    remappedvslots.setsize(0);
+    unpackingvslots.setsize(0);
+
+    filltexlist();
+    compacteditvslots();
+    allchanged();
+
+    removedslots = oldslotcount - slots.length();
+    removedvslots = oldvslotcount - vslots.length();
+    return removedslots > 0 || removedvslots > 0;
+}
+
+// SauerWUI - remove unused textures (write map cfg)
+static void removeunusedtextures_cmd()
+{
+    extern int nompedit;
+    if(noedit(true) || (nompedit && multiplayer())) return;
+    int removedslots = 0, removedvslots = 0;
+    if(removeunusedtextures_internal(removedslots, removedvslots))
+    {
+        conoutf("removed %d unused texture slot%s and %d vslot%s",
+            removedslots,
+            removedslots == 1 ? "" : "s",
+            removedvslots,
+            removedvslots == 1 ? "" : "s");
+    }
+    else conoutf("no unused textures to remove");
+}
+
+ICOMMAND(removeunusedtextures, "", (), removeunusedtextures_cmd());
+
+// SauerWUI - remove unused mapmodels (write map cfg)
+static bool removeunusedmmodels_internal(int &removedmmodels)
+{
+    removedmmodels = 0;
+    const int oldcount = mapmodels.length();
+    if(!oldcount) return false;
+
+    vector<char> used;
+    loopi(oldcount) used.add(0);
+
+    vector<extentity *> &ents = entities::getents();
+    loopv(ents)
+    {
+        extentity &e = *ents[i];
+        if(e.type == ET_MAPMODEL && e.attr2 >= 0 && e.attr2 < oldcount)
+            used[e.attr2] = 1;
+    }
+
+    int keep = 0;
+    loopi(oldcount) if(used[i]) keep++;
+    if(keep == oldcount) return false;
+
+    vector<int> remap;
+    loopi(oldcount) remap.add(-1);
+    int next = 0;
+    loopi(oldcount)
+    {
+        if(used[i])
+        {
+            remap[i] = next;
+            if(next != i) mapmodels[next] = mapmodels[i];
+            next++;
+        }
+        else remap[i] = -1;
+    }
+    mapmodels.shrink(next);
+
+    const int newcount = mapmodels.length();
+    const int fallback = newcount ? 0 : -1;
+
+    loopv(ents)
+    {
+        extentity &e = *ents[i];
+        if(e.type != ET_MAPMODEL || e.attr2 < 0 || e.attr2 >= remap.length()) continue;
+        int mapped = remap[e.attr2];
+        e.attr2 = mapped >= 0 ? mapped : fallback;
+    }
+
+    removedmmodels = oldcount - newcount;
+    return removedmmodels > 0;
+}
+
+static void removeunusedmmodels_cmd()
+{
+    extern int nompedit;
+    if(noedit(true) || (nompedit && multiplayer())) return;
+    int removed = 0;
+    if(removeunusedmmodels_internal(removed))
+        conoutf("removed %d unused mapmodel%s", removed, removed == 1 ? "" : "s");
+    else
+        conoutf("no unused mapmodels to remove");
+}
+
+ICOMMAND(removeunusedmmodels, "", (), removeunusedmmodels_cmd());
 
 void edittex(int i, bool save = true)
 {

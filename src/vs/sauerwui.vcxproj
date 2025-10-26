@@ -185,6 +185,7 @@
     <ClCompile Include="..\engine\shadowmap.cpp" />
     <ClCompile Include="..\engine\sound.cpp" />
     <ClCompile Include="..\engine\texture.cpp" />
+    <ClCompile Include="..\engine\worldcfg.cpp" />
     <ClCompile Include="..\engine\water.cpp" />
     <ClCompile Include="..\engine\world.cpp" />
     <ClCompile Include="..\engine\worldio.cpp" />
@@ -240,6 +241,7 @@
     <ClInclude Include="..\engine\smd.h" />
     <ClInclude Include="..\engine\textedit.h" />
     <ClInclude Include="..\engine\texture.h" />
+    <ClInclude Include="..\engine\worldcfg.h" />
     <ClInclude Include="..\engine\vertmodel.h" />
     <ClInclude Include="..\engine\world.h" />
     <ClInclude Include="..\fpsgame\ai.h" />

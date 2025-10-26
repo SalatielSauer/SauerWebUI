@@ -66,6 +66,8 @@ It won't work if you install it side by side with a P1xbraten installation (reas
   - [`loadmonster <config>`](#loadmonster-config)
   - [`clearmonsters`](#clearmonsters)
   - [`radaroverlay`](#radaroverlay-01)
+  - [`remove unused assets`](#remove-unused-assets)
+  - [`writemapcfg`](#writemapcfg-name)
 
   - <details>
 	<summary>Monster Commands</summary>
@@ -606,6 +608,28 @@ enum. Values are:
 			cutscenestate.x == 3: playing;
 			cutscenestate.y : frames since cutscene start.
 			```
+	
+- ### `Remove unused Assets`
+	If you've finished a map and want to clean up your texture and mapmodel browser, there are two edit commands to make this process easier before writing the map cfg file:
+	- ### `removeunusedtextures`
+	- ### `removeunusedmmodels`
+	As their names imply, they will only retain the content that is actually used in the map and automatically adjust the indexes. Note that this will require a custom map cfg for the content to load normally; see below how to generate one automatically with `writemapcfg`.
+
+- ### `writemapcfg <name>`
+	This command will browse through all the textures, mapmodels, sounds, and mapvars of your map and define them in separate sections within a single .cfg file.
+
+	In the case of textures, all their settings such as vcolor, vscale, voffset, shaders, etc. are also preserved.
+
+	The .cfg file is saved in the `packages/base` folder of your home directory, and will use the map name by default if a name is not provided.
+
+	Additionally, there are individual variations if you wish to write only one of the assets:
+	- #### `writesoundscfg`
+	- #### `writetexturescfg`
+	- #### `writemapvarscfg`
+	- #### `writemmodelscfg`
+	They all work the same as `writemapcfg`.
+
+
 
 <hr>
 

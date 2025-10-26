@@ -498,6 +498,7 @@ extern bool safemodelcfg; // SauerWUI - safe 'do' (model cfg)
 extern void findanims(const char *pattern, vector<int> &anims);
 extern void loadskin(const char *dir, const char *altdir, Texture *&skin, Texture *&masks);
 extern mapmodelinfo *getmminfo(int i);
+extern vector<mapmodelinfo> mapmodels; // SauerWUI - remove unused mapmodels (write map cfg)
 extern void startmodelquery(occludequery *query);
 extern void endmodelquery();
 extern void preloadmodelshaders(bool force = false);

@@ -126,6 +126,9 @@
     <ClCompile Include="..\engine\texture.cpp">
       <Filter>engine</Filter>
     </ClCompile>
+    <ClCompile Include="..\engine\worldcfg.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
     <ClCompile Include="..\engine\water.cpp">
       <Filter>engine</Filter>
     </ClCompile>
@@ -267,6 +270,9 @@
       <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="..\engine\texture.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\worldcfg.h">
       <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="..\engine\vertmodel.h">

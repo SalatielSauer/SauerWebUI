@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "SDL_mixer.h"
 #include "SDL_mixer_ext/SDL_mixer_ext.h"
+#include "worldcfg.h" // SauerWUI - write map cfg
 
 bool nosound = true;
 
@@ -562,6 +563,43 @@ COMMAND(altmapsound, "si");
 
 ICOMMAND(numsounds, "", (), intret(gamesounds.configs.length()));
 ICOMMAND(nummapsounds, "", (), intret(mapsounds.configs.length()));
+
+// SauerWUI - write map cfg
+namespace worldcfg
+{
+    int nummapsoundentries()
+    {
+        return mapsounds.configs.length();
+    }
+
+    bool collect_mapsound_entry(int idx, mapsound_entry &entry)
+    {
+        if(!mapsounds.configs.inrange(idx)) return false;
+        soundconfig &config = mapsounds.configs[idx];
+        if(!mapsounds.slots.inrange(config.slots)) return false;
+
+        soundslot &slot = mapsounds.slots[config.slots];
+        if(!slot.sample || !slot.sample->name) return false;
+
+        copystring(entry.name, slot.sample->name);
+        entry.volume = slot.volume;
+        entry.maxuses = config.maxuses;
+
+        entry.alts.setsize(0);
+        for(int j = 1; j < config.numslots; ++j)
+        {
+            int slotindex = config.slots + j;
+            if(!mapsounds.slots.inrange(slotindex)) continue;
+            soundslot &altslot = mapsounds.slots[slotindex];
+            if(!altslot.sample || !altslot.sample->name) continue;
+            mapsound_alt &alt = entry.alts.add();
+            copystring(alt.name, altslot.sample->name);
+            alt.volume = altslot.volume;
+        }
+
+        return true;
+    }
+}
 
 void soundreset()
 {
