@@ -100,9 +100,10 @@ window._create_menu_browser = _create_menu_browser;
 //window.wui.showMenu('main');
 
 window.cubescript(`
+showcursor 0
 nodebug [compareversion = [result 1]]
 
-_packages_version = (compareversion "27-07-2025")
+_packages_version = (compareversion "01-11-2025")
 
 newgui main [guistayopen [
 	if (= $_packages_version 0) [

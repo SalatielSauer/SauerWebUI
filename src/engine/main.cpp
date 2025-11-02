@@ -1438,7 +1438,7 @@ VAR(numcpus, 1, 1, 16);
 SVARP(wui_default, "");
 
 // SauerWUI version string in dd-mm-yyyy format
-_SVAR(sauerwui_version, sauerwui_version, "27-07-2025", IDF_READONLY);
+_SVAR(sauerwui_version, sauerwui_version, "01-11-2025", IDF_READONLY);
 
 static int sauerwui_compare_version(const char* other)
 {

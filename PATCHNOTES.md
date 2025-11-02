@@ -1,6 +1,53 @@
 ## 🔍 SauerWebUI Patch Notes
 
-### 27/07/2025 📌
+### 01/11/2025 📌
+- Map .cfg generator
+
+  For a mapper, the most tedious step is probably setting up the .cfg file, all those unused default textures, all those manual replaces... not anymore.
+
+  SauerWUI now have edit commands to make it easy to remove unused assets and generate a custom cfg:
+  - `removeunusedtextures`
+  - `removeunusedmmodels`
+
+    As the name suggests, they remove all unused content from the map, giving you a clean texture browser and a clean mapmodel browser.
+
+  - `writemapcfg <name>`
+
+    A clean list of textures and models requires an appropriate cfg file; this command will take care of that for you, including not only textures and mapmodels, but also mapvars and mapsounds. The file is created in the `packages/base` folder using the map name by default if not provided.
+
+
+- Emoji Support 💪
+
+  If words aren’t enough, now you can add an emoji to any text input using the <e:> marker with a Unicode value, like:
+  `<e:1F438>`.
+  <img width="512px" src="https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_emojisupport.png">
+  
+- `radaroverlay <1/0>`
+
+  Option to display a copy of the radar in the center of the screen; you can adjust the size and transparency with `radaroverlaysize` and `radaroverlayopacity`.
+
+- Frag Announcer sounds
+
+  Now you can feel more hyped while fragging! If you score the first blood or pull off a combo of 2 to 5 kills, you'll hear encouraging messages.
+  There’s also an Intermission announcement.
+
+- Scoreboard Flag
+
+  Players carrying the flag are visible on the scoreboard accompanied by a flag icon, just to satisfy your curiosity.
+
+- Controller Support
+
+  If you're tired of blaming your keyboard or mouse, now you can blame your controller too; just plug it in and you should be ready to ~~suffer~~ go.
+
+  You can adjust the sensitivity and binds in your `autoexec.cfg` file (see `data/wui/joystickbinds.cfg`, note: changes to this file will only take effect if you run it manually with `/exec`).
+
+- Keep command history
+
+  You can use `maxhistorykeep` to control how many commands will be retained across different sessions in your command history.
+
+
+
+### 27/07/2025
 A new cutscene system with a bunch of commands for all your filmmaker needs:
 <iframe width="460" height="215" src="https://www.youtube.com/embed/k9ephMR1d5U" frameborder="0" allowfullscreen></iframe>
 
