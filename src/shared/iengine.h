@@ -89,6 +89,8 @@ extern editinfo *localedit;
 
 extern bool editmode;
 
+extern int highlightslotindex, highlightvslotindex; // SauerWUI - highlight slot
+
 extern int shouldpacktex(int index);
 extern bool packeditinfo(editinfo *e, int &inlen, uchar *&outbuf, int &outlen);
 extern bool unpackeditinfo(editinfo *&e, const uchar *inbuf, int inlen, int outlen);

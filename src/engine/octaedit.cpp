@@ -93,6 +93,10 @@ void boxsgrid(int orient, vec o, vec s, int g)
 
 selinfo sel, lastsel, savedsel;
 
+// SauerWUI - highlight slot
+int highlightslotindex = -1;
+int highlightvslotindex = -1;
+
 // SauerWUI - multiselection
 vector<selinfo> multisels;
 VAR(multiselmode, 0, 0, 1);
@@ -2951,6 +2955,36 @@ COMMAND(gettexname, "ii");
 ICOMMAND(numvslots, "", (), intret(vslots.length()));
 ICOMMAND(numslots, "", (), intret(slots.length()));
 COMMAND(getslottex, "i");
+
+// SauerWUI - highlight slot
+ICOMMAND(highlightslot, "ii", (int *toggle, int *slot),
+{
+    if(*toggle <= 0)
+    {
+        highlightslotindex = highlightvslotindex = -1;
+        intret(-1);
+        return;
+    }
+    if(slots.inrange(*slot))
+    {
+        highlightslotindex = *slot;
+        highlightvslotindex = -1;
+        intret(highlightslotindex);
+        return;
+    }
+    if(vslots.inrange(*slot))
+    {
+        VSlot &vs = lookupvslot(*slot, false);
+        highlightslotindex = vs.slot ? vs.slot->index : -1;
+        highlightvslotindex = *slot;
+        intret(highlightvslotindex);
+        return;
+    }
+    conoutf(CON_ERROR, "highlightslot: invalid slot/vslot index %d", *slot);
+    highlightslotindex = highlightvslotindex = -1;
+    intret(-1);
+});
+
 ICOMMAND(texloaded, "i", (int *tex), intret(slots.inrange(*tex) && slots[*tex]->loaded ? 1 : 0));
 
 void replacetexcube(cube &c, int oldtex, int newtex)

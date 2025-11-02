@@ -286,6 +286,7 @@ extern void rendermapmodels();
 extern void renderreflectedgeom(bool causticspass = false, bool fogpass = false);
 extern void renderreflectedmapmodels();
 extern void renderoutline();
+extern void renderhighlightslot(); // SauerWUI - highlight slot
 extern bool rendersky(bool explicitonly = false);
 
 extern bool isfoggedsphere(float rad, const vec &cv);

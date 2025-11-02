@@ -1913,6 +1913,8 @@ void gl_drawframe()
 
     rendergeom(causticspass);
 
+    renderhighlightslot(); // SauerWUI - highlight slot
+
     extern int outline;
     if(!wireframe && editmode && outline) renderoutline();
 

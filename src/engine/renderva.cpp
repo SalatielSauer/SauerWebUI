@@ -1702,6 +1702,72 @@ void rendergeom(float causticspass, bool fogpass)
     cleanupgeom(cur);
 }
 
+// SauerWUI - highlight slot
+void renderhighlightslot()
+{
+    if((highlightslotindex < 0 && highlightvslotindex < 0) || !editmode || drawtex || reflecting || refracting) return;
+
+    extern int wireframe;
+    bool restorewireframe = wireframe && editmode;
+    if(restorewireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    GLboolean cullon = glIsEnabled(GL_CULL_FACE);
+    if(cullon) glDisable(GL_CULL_FACE);
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    notextureshader->set();
+    gle::colorf(1.0f, 0.45f, 0.0f, 0.4f);
+
+    renderstate cur;
+    enablevattribs(cur, false);
+
+    for(vtxarray *va = visibleva; va; va = va->next)
+    {
+        if(!va->eslist) continue;
+        int total = va->texs + va->blends + va->alphaback + va->alphafront;
+        if(total <= 0) continue;
+
+        if(cur.vbuf != va->vbuf) changevbuf(cur, RENDERPASS_Z, va);
+
+        ushort *edata = va->edata;
+        loopi(total)
+        {
+            elementset &es = va->eslist[i];
+            bool matchvslot = highlightvslotindex >= 0 && es.texture == highlightvslotindex;
+            bool matchslot = false;
+            if(!matchvslot && highlightslotindex >= 0)
+            {
+                VSlot &vs = lookupvslot(es.texture, false);
+                matchslot = vs.slot && vs.slot->index == highlightslotindex;
+            }
+            if(matchslot || matchvslot)
+            {
+                if(es.length[0] > 0)
+                    drawtris(es.length[0], edata, es.minvert[0], es.maxvert[0]);
+                if(es.length[1] > es.length[0])
+                    drawtris(es.length[1] - es.length[0], edata + es.length[0], es.minvert[1], es.maxvert[1]);
+            }
+            edata += es.length[1];
+        }
+    }
+
+    if(cur.vbuf) disablevbuf(cur);
+    if(cur.vattribs) disablevattribs(cur, false);
+
+    gle::colorf(1, 1, 1, 1);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+
+    if(cullon) glEnable(GL_CULL_FACE);
+    if(restorewireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+}
+
 void renderalphageom(bool fogpass)
 {
     static vector<vtxarray *> alphavas;
