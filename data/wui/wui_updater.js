@@ -111,20 +111,101 @@ class GithubUpdater {
     }
 
     markdownToHtml(md) {
+        const escapeHtml = (str) => str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const formatInline = (text) => {
+            if (!text) return '';
+            const pattern = /`([^`]+)`|\*\*([^*]+)\*\*/g;
+            let result = '';
+            let lastIndex = 0;
+            let match;
+            while ((match = pattern.exec(text)) !== null) {
+                if (match.index > lastIndex) {
+                    result += escapeHtml(text.slice(lastIndex, match.index));
+                }
+                if (match[1] !== undefined) {
+                    result += `<code>${escapeHtml(match[1])}</code>`;
+                } else if (match[2] !== undefined) {
+                    result += `<b>${escapeHtml(match[2])}</b>`;
+                }
+                lastIndex = pattern.lastIndex;
+            }
+            if (lastIndex < text.length) {
+                result += escapeHtml(text.slice(lastIndex));
+            }
+            return result;
+        };
+
+        const rawHtmlTags = new Set(['details', 'summary', 'img', 'iframe', 'hr', 'br', 'video', 'source']);
+        const isRawHtmlLine = (line) => {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('<')) return false;
+            const tagMatch = trimmed.match(/^<\/?([a-z0-9-]+)/i);
+            if (!tagMatch) return false;
+            return rawHtmlTags.has(tagMatch[1].toLowerCase());
+        };
+
+        const createVideoCard = (watchUrl, thumbnailUrl, label) => {
+            const thumbHtml = thumbnailUrl
+                ? `<img src="${escapeHtml(thumbnailUrl)}" alt="${escapeHtml(label)}" style="max-width:100%;border-radius:4px;" />`
+                : '';
+            return `<div class="wui-video-card" data-watch-url="${escapeHtml(watchUrl)}" tabindex="0" style="cursor:pointer;display:inline-block;border:1px solid #22303a;padding:6px;background:#0d1c29;border-radius:4px;text-align:center;margin:6px 0;">${thumbHtml}<div style="margin-top:4px;font-weight:bold;">${escapeHtml(label)}</div></div>`;
+        };
+
+        const upgradeIframe = (line) => {
+            let replacement = '';
+            const srcMatch = line.match(/\s+src="([^"]+)"/i);
+            if (srcMatch) {
+                try {
+                    const srcUrl = new URL(srcMatch[1], 'https://placeholder.invalid/');
+                    const hostname = srcUrl.hostname || '';
+                    const ytMatch = srcUrl.pathname.match(/\/embed\/([^/?]+)/);
+                    if ((/^(\w+\.)?youtube(?:-nocookie)?\.com$/i).test(hostname) && ytMatch) {
+                        const videoId = ytMatch[1];
+                        const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                        const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                        replacement = createVideoCard(watchUrl, thumbnail, 'Watch on YouTube');
+                    } else {
+                        replacement = createVideoCard(srcUrl.href, '', 'Open Video');
+                    }
+                } catch { /* ignore malformed src */ }
+            }
+            return replacement || line.trim();
+        };
+
         const lines = md.split('\n');
         let html = '';
         let inList = false;
-        for (const l of lines) {
-            let line = l.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-            if (/^- /.test(line)) {
-                if (!inList) { html += '<ul>'; inList = true; }
-                html += `<li>${line.slice(2).trim()}</li>`;
-            } else {
+        for (const rawLine of lines) {
+            const line = rawLine.replace(/\r$/, '');
+            const trimmed = line.trim();
+            if (!trimmed) {
                 if (inList) { html += '</ul>'; inList = false; }
-                if (line.startsWith('### ')) html += `<h3>${line.slice(4)}</h3>`;
-                else if (line.startsWith('## ')) html += `<h2>${line.slice(3)}</h2>`;
-                else if (line.startsWith('# ')) html += `<h1>${line.slice(2)}</h1>`;
-                else if (line.trim() !== '') html += `<p>${line}</p>`;
+                continue;
+            }
+
+            const listMatch = line.match(/^\s*-\s+/);
+            if (listMatch) {
+                if (!inList) { html += '<ul>'; inList = true; }
+                html += `<li>${formatInline(line.slice(listMatch[0].length))}</li>`;
+                continue;
+            }
+
+            if (inList) { html += '</ul>'; inList = false; }
+
+            if (/^###\s+/.test(trimmed)) html += `<h3>${formatInline(trimmed.slice(4).trim())}</h3>`;
+            else if (/^##\s+/.test(trimmed)) html += `<h2>${formatInline(trimmed.slice(3).trim())}</h2>`;
+            else if (/^#\s+/.test(trimmed)) html += `<h1>${formatInline(trimmed.slice(2).trim())}</h1>`;
+            else if (isRawHtmlLine(line)) {
+                if (/^\s*<iframe/i.test(trimmed)) html += upgradeIframe(line);
+                else html += trimmed;
+            } else {
+                html += `<p>${formatInline(trimmed)}</p>`;
             }
         }
         if (inList) html += '</ul>';
@@ -148,12 +229,33 @@ class GithubUpdater {
         notesDiv.style.position = 'relative';
         notesDiv.innerHTML = this.markdownToHtml(notesText);
 
+        const openVideoUrl = (url) => {
+            if (!url) return;
+            const trimmed = url.trim();
+            if (!trimmed) return;
+            if (window.cubescript) {
+                const escaped = trimmed.replace(/"/g, '\\"');
+                window.cubescript(`wuiopenurl "${escaped}"`);
+            } else {
+                window.open(trimmed, '_blank', 'noopener');
+            }
+        };
+
+        notesDiv.querySelectorAll('.wui-video-card').forEach((card) => {
+            const url = card.getAttribute('data-watch-url');
+            if (!url) return;
+            card.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                openVideoUrl(url);
+            });
+        });
+
         const fsBtn = document.createElement('button');
         fsBtn.textContent = '⛶ Fullscreen';
         fsBtn.style.position = 'absolute';
         fsBtn.style.right = '2px';
         fsBtn.style.top = '2px';
-        fsBtn.style.fontSize = '8px';
+        fsBtn.style.fontSize = '100%';
         fsBtn.style.minWidth = 'auto';
         fsBtn.title = 'Toggle Fullscreen';
         fsBtn.onclick = async () => {

@@ -20,7 +20,7 @@
 
   If words aren’t enough, now you can add an emoji to any text input using the <e:> marker with a Unicode value, like:
   `<e:1F438>`.
-  <img width="512px" src="https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_emojisupport.png">
+  <img width="256px" src="https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_emojisupport.png">
   
 - `radaroverlay <1/0>`
 
