@@ -1,6 +1,8 @@
 # Sauerbraten + JavaScript = Wonderfulness
 
-![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_2.png)
+![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwebui_banner.png)
+
+[⬇️Download SauerWebUI](#installation) | [🛠️Features](#functions) | [❓About](#about) | [💬Discord](https://discord.gg/VWvPZ2R)
 
 ## What is this?
 **SauerWebUI** is a mod for [Sauerbraten](http://sauerbraten.org/) that brings web technologies to the [Cube Engine](http://cubeengine.com/), allowing users to create interfaces entirely in HTML, CSS, and JavaScript, and to use any library available for those environments.
@@ -8,6 +10,8 @@
 And of course, you can execute [CubeScript](https://github.com/CubeScript) from JavaScript and vice versa!
 
 Also, for now, there are some miscellaneous experiments that you will see below.
+
+![](https://raw.githubusercontent.com/SalatielSauer/misc/refs/heads/master/sauerwui_2.png)
 
 ## Installation
 There is currently a pre-compiled binary available for Windows x64 only (tested with Windows 10 22H2):
@@ -639,6 +643,8 @@ If you use VSCode, there is an extension available that handles syntax highlight
 
 <hr>
 
+### About
+
 **SauerWebUI** is a mod of [Cube 2 Sauerbraten](http://sauerbraten.org/) and uses [CEF (Chromium Embedded Framework)](https://github.com/chromiumembedded/cef).
 
 by [@SalatielSauer](https://github.com/SalatielSauer)
@@ -652,4 +658,9 @@ Copyright (c) 2008-2020 Marshall A. Greenblatt. Portions Copyright (c)
 -------------------------------------------
 Cube 2 Sauerbraten
 Copyright (c) 2001-2020 Wouter van Oortmerssen, Lee Salzman, Mike Dysart, Robert Pointon, and Quinton Reeves.
+Licensed under the ZLIB/Free Software License.
+-------------------------------------------
+SauerWebUI
+Copyright (c) 2025 Salatiel S.
+Original content and code contributed to SauerWebUI are licensed under the CC BY-SA 3.0 license, unless otherwise noted.
 ```
