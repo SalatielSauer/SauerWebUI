@@ -17,6 +17,8 @@
 #include <string>
 #include <cstdlib>
 
+extern char homedir[];
+
 static CefRefPtr<CefBrowser> g_browser;
 
 // main message router for handling browser-side javascript queries
@@ -103,8 +105,22 @@ static std::unordered_map<std::string, CefRefPtr<CefMessageRouterBrowserSide::Ca
 std::string getDownloadPath(const std::string& filename) {
     std::filesystem::path exeDir = GetExeDir();
     std::filesystem::path projectDir = std::filesystem::weakly_canonical(exeDir / "..");
-    std::filesystem::path homePath = projectDir / "HOME"; // todo: we should not hardcode the home folder
-    std::filesystem::path targetPath = homePath;
+    const bool usingCustomHome = homedir[0] != '\0';
+
+    std::filesystem::path baseHome;
+    if (usingCustomHome) {
+        baseHome = std::filesystem::path(homedir);
+    }
+    else {
+        std::filesystem::path bundledHome = projectDir / "HOME";
+        baseHome = std::filesystem::exists(bundledHome) ? bundledHome : projectDir;
+    }
+
+    std::filesystem::path sandboxRoot = usingCustomHome
+        ? std::filesystem::weakly_canonical(baseHome)
+        : projectDir;
+
+    std::filesystem::path targetPath = baseHome;
     if (!download_subdir.empty()) {
         targetPath /= download_subdir;
     }
@@ -112,8 +128,8 @@ std::string getDownloadPath(const std::string& filename) {
 
     std::filesystem::path canonicalTarget = std::filesystem::weakly_canonical(targetPath);
 
-    if (!pathStartsWith(canonicalTarget, projectDir)) {
-        canonicalTarget = std::filesystem::weakly_canonical(homePath / filename);
+    if (!pathStartsWith(canonicalTarget, sandboxRoot)) {
+        canonicalTarget = std::filesystem::weakly_canonical(baseHome / filename);
     }
     std::filesystem::create_directories(canonicalTarget.parent_path());
     return canonicalTarget.string();

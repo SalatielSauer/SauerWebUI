@@ -261,6 +261,13 @@
     <ClInclude Include="..\shared\iengine.h" />
     <ClInclude Include="..\shared\igame.h" />
     <ClInclude Include="..\shared\tools.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="sauerwui.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon1.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

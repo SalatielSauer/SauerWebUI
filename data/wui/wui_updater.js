@@ -306,7 +306,7 @@ class GithubUpdater {
             }
 
             window.cefQuery({
-                request: `downloadfile:${url}|../${dir}|${token}`,
+                request: `downloadfile:${url}|${dir}|${token}`,
                 persistent: true,
                 onSuccess: (r) => {
                     try { var d = JSON.parse(r); } catch (e) { return; }
@@ -538,7 +538,7 @@ class GithubUpdater {
 window.quickUpdate = () => {
     let completed = false;
     window.cefQuery({
-        request: `downloadfile:https://github.com/SalatielSauer/SauerWebUI/raw/main/bin64/sauerwui.exe|../bin64|${Date.now().toString()}`,
+        request: `downloadfile:https://github.com/SalatielSauer/SauerWebUI/raw/main/bin64/sauerwui.exe|bin64|${Date.now().toString()}`,
         persistent: true,
         onSuccess: (r) => {
             try { var d = JSON.parse(r); } catch (e) { return; }
