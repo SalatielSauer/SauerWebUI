@@ -1,6 +1,7 @@
 // worldio.cpp: loading & saving of maps and savegames
 
 #include "engine.h"
+#include "edittemplates.h" // SauerWUI - geometry templates
 
 // SauerWUI - import obj as geometry
 extern selinfo sel;
@@ -1290,7 +1291,8 @@ bool load_world(const char *mname, const char *cname)        // still supports a
     }
 
     identflags &= ~IDF_OVERRIDDEN;
-   
+    edittemplates_loadpersisted(); // SauerWUI - geometry templates
+
     extern void fixlightmapnormals();
     if(hdr.version <= 25) fixlightmapnormals();
     extern void fixrotatedlightmaps();

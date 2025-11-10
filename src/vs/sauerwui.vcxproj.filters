@@ -78,6 +78,9 @@
     <ClCompile Include="..\engine\octaedit.cpp">
       <Filter>engine</Filter>
     </ClCompile>
+    <ClCompile Include="..\engine\edittemplates.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
     <ClCompile Include="..\engine\octarender.cpp">
       <Filter>engine</Filter>
     </ClCompile>
@@ -252,6 +255,9 @@
       <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="..\engine\octa.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\engine\edittemplates.h">
       <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="..\engine\ragdoll.h">

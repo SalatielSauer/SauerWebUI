@@ -1,6 +1,7 @@
 // world.cpp: core map management stuff
 
 #include "engine.h"
+#include "edittemplates.h" // SauerWUI - geometry templates
 
 VARR(mapversion, 1, MAPVERSION, 0);
 VARNR(mapscale, worldscale, 1, 0, 0);
@@ -1254,6 +1255,7 @@ void resetmap()
     cancelsel();
     pruneundos();
     clearmapcrc();
+    edittemplates_reset(); // SauerWUI - geometry templates
 
     entities::clearents();
     outsideents.setsize(0);

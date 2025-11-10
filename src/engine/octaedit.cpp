@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "edittemplates.h" // SauerWUI - geometry templates
 
 extern int outline;
 extern vector<int> smoothgroups; // SauerWUI - remove unused textures (write map cfg)
@@ -607,6 +608,8 @@ void rendereditcursor()
         }
     }
 
+    edittemplates_renderdebug(); // SauerWUI - geometry templates
+
     disablepolygonoffset(GL_POLYGON_OFFSET_LINE);
 
     boxoutline = false;
@@ -676,6 +679,8 @@ void commitchanges(bool force)
 void changed(const block3 &sel, bool commit = true)
 {
     if(sel.s.iszero()) return;
+
+    edittemplates_onchanged(sel); // SauerWUI - geometry templates
 
     readychanges(ivec(sel.o).sub(1), ivec(sel.s).mul(sel.grid).add(sel.o).add(1), worldroot, ivec(0, 0, 0), worldsize/2);
 

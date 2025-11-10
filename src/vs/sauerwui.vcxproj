@@ -169,6 +169,7 @@
     <ClCompile Include="..\engine\normal.cpp" />
     <ClCompile Include="..\engine\octa.cpp" />
     <ClCompile Include="..\engine\octaedit.cpp" />
+    <ClCompile Include="..\engine\edittemplates.cpp" />
     <ClCompile Include="..\engine\octarender.cpp" />
     <ClCompile Include="..\engine\pch.cpp" />
     <ClCompile Include="..\engine\physics.cpp" />
@@ -235,6 +236,7 @@
     <ClInclude Include="..\engine\mpr.h" />
     <ClInclude Include="..\engine\obj.h" />
     <ClInclude Include="..\engine\octa.h" />
+    <ClInclude Include="..\engine\edittemplates.h" />
     <ClInclude Include="..\engine\ragdoll.h" />
     <ClInclude Include="..\engine\rendertarget.h" />
     <ClInclude Include="..\engine\skelmodel.h" />
