@@ -668,6 +668,7 @@ void setcamprojmatrix(bool init = true, bool flush = false)
     }
 
     GLOBALPARAM(camprojmatrix, camprojmatrix);
+    GLOBALPARAM(invcamprojmatrix, invcamprojmatrix);
 
     if(fogging)
     {

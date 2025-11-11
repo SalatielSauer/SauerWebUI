@@ -1276,14 +1276,21 @@ int postfxbinds[NUMPOSTFXBINDS];
 GLuint postfxfb = 0;
 int postfxw = 0, postfxh = 0;
 
+// SauerWUI - postfx depth
+GLuint postfxdepthtex = 0;
+int postfxdepthw = 0, postfxdepthh = 0;
+
 struct postfxpass
 {
     Shader *shader;
     vec4 params;
     uint inputs, freeinputs;
     int outputbind, outputscale;
+    bool usedepth;
 
-    postfxpass() : shader(NULL), inputs(1), freeinputs(1), outputbind(0), outputscale(0) {}
+    // SauerWUI - postfx depth
+    //postfxpass() : shader(NULL), inputs(1), freeinputs(1), outputbind(0), outputscale(0) {}
+    postfxpass() : shader(NULL), inputs(1), freeinputs(1), outputbind(0), outputscale(0), usedepth(false) {}
 };
 vector<postfxpass> postfxpasses;
 
@@ -1314,6 +1321,14 @@ void cleanuppostfx(bool fullclean)
 
     postfxw = 0;
     postfxh = 0;
+
+    // SauerWUI - postfx depth
+    if(postfxdepthtex)
+    {
+        glDeleteTextures(1, &postfxdepthtex);
+        postfxdepthtex = 0;
+    }
+    postfxdepthw = postfxdepthh = 0;
 }
 
 void renderpostfx()
@@ -1327,6 +1342,10 @@ void renderpostfx()
         postfxh = screenh;
     }
 
+    // SauerWUI - postfx depth
+    bool needdepthtex = false;
+    loopv(postfxpasses) if(postfxpasses[i].usedepth) { needdepthtex = true; break; }
+
     int binds[NUMPOSTFXBINDS];
     loopi(NUMPOSTFXBINDS) binds[i] = -1;
     loopv(postfxtexs) postfxtexs[i].used = -1;
@@ -1335,6 +1354,29 @@ void renderpostfx()
     postfxtexs[binds[0]].used = 0;
     glBindTexture(GL_TEXTURE_2D, postfxtexs[binds[0]].id);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, screenw, screenh);
+
+    // SauerWUI - postfx depth
+    if(needdepthtex)
+    {
+        if(!postfxdepthtex)
+        {
+            glGenTextures(1, &postfxdepthtex);
+            postfxdepthw = postfxdepthh = 0;
+        }
+        glBindTexture(GL_TEXTURE_2D, postfxdepthtex);
+        if(postfxdepthw != screenw || postfxdepthh != screenh)
+        {
+            glTexImage2D(GL_TEXTURE_2D, 0, hasTF ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT, screenw, screenh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+            postfxdepthw = screenw;
+            postfxdepthh = screenh;
+        }
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, screenw, screenh);
+    }
 
     if(postfxpasses.length() > 1)
     {
@@ -1376,6 +1418,15 @@ void renderpostfx()
             glBindTexture(GL_TEXTURE_2D, postfxtexs[binds[j]].id);
             ++tmu;
         }
+
+        // SauerWUI - postfx depth
+        if(p.usedepth && postfxdepthtex)
+        {
+            if(tmu) glActiveTexture_(GL_TEXTURE0 + tmu);
+            glBindTexture(GL_TEXTURE_2D, postfxdepthtex);
+            ++tmu;
+        }
+
         if(tmu) glActiveTexture_(GL_TEXTURE0);
         LOCALPARAMF(postfxscale, 1.0f/tw, 1.0f/th);
         screenquad(1, 1);
@@ -1394,7 +1445,9 @@ void renderpostfx()
     }
 }
 
-static bool addpostfx(const char *name, int outputbind, int outputscale, uint inputs, uint freeinputs, const vec4 &params)
+// SauerWUI - postfx depth
+//static bool addpostfx(const char *name, int outputbind, int outputscale, uint inputs, uint freeinputs, const vec4 &params)
+static bool addpostfx(const char *name, int outputbind, int outputscale, uint inputs, uint freeinputs, const vec4 &params, bool usedepth = false)
 {
     if(!*name) return false;
     Shader *s = useshaderbyname(name);
@@ -1410,6 +1463,7 @@ static bool addpostfx(const char *name, int outputbind, int outputscale, uint in
     p.inputs = inputs;
     p.freeinputs = freeinputs;
     p.params = params;
+    p.usedepth = usedepth; // SauerWUI - postfx depth
     return true;
 }
 
@@ -1426,16 +1480,24 @@ ICOMMAND(addpostfx, "siisffff", (char *name, int *bind, int *scale, char *inputs
     int inputmask = inputs[0] ? 0 : 1;
     int freemask = inputs[0] ? 0 : 1;
     bool freeinputs = true;
+
+    bool usedepth = false; // SauerWUI - postfx depth
+
     for(; *inputs; inputs++) if(isdigit(*inputs)) 
     {
         inputmask |= 1<<(*inputs-'0');
         if(freeinputs) freemask |= 1<<(*inputs-'0');
     }
+    else if(*inputs=='d' || *inputs=='D') usedepth = true; // SauerWUI - postfx depth
+
     else if(*inputs=='+') freeinputs = false;
     else if(*inputs=='-') freeinputs = true;
     inputmask &= (1<<NUMPOSTFXBINDS)-1;
     freemask &= (1<<NUMPOSTFXBINDS)-1;
-    addpostfx(name, clamp(*bind, 0, NUMPOSTFXBINDS-1), max(*scale, 0), inputmask, freemask, vec4(*x, *y, *z, *w));
+
+    // SauerWUI - postfx depth
+    //addpostfx(name, clamp(*bind, 0, NUMPOSTFXBINDS-1), max(*scale, 0), inputmask, freemask, vec4(*x, *y, *z, *w));
+    addpostfx(name, clamp(*bind, 0, NUMPOSTFXBINDS-1), max(*scale, 0), inputmask, freemask, vec4(*x, *y, *z, *w), usedepth);
 });
 
 ICOMMAND(setpostfx, "sffff", (char *name, float *x, float *y, float *z, float *w),
